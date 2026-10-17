@@ -1,0 +1,27 @@
+[package]
+name = "trendkit-core"
+description = "Core types, SQLite snapshot store, source traits, and velocity scoring for trendkit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+tokio.workspace = true
+tracing.workspace = true
+clock-kit = "0.1.0"
+fetch-kit = "0.2.0"
+retry-backoff = { version = "0.2.0", features = ["impl_exponential_backoff"] }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

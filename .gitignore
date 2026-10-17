@@ -1,0 +1,8 @@
+/target
+Cargo.lock.orig
+*.db
+*.db-wal
+*.db-shm
+mutants.out*
+.cobertura.xml
+coverage

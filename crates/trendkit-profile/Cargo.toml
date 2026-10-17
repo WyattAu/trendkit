@@ -1,0 +1,19 @@
+[package]
+name = "trendkit-profile"
+description = "Personal relevance profile for trendkit: scan a GitHub user's repos, weight trends by overlap"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+trendkit-core.workspace = true
+
+[lints]
+workspace = true

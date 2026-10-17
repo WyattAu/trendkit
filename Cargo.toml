@@ -1,0 +1,48 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+# Lints enforced at workspace level (matches crawlkit gate)
+unwrap_used = "deny"           # Zero unwrap() in production code
+expect_used = "deny"           # Zero expect() — use descriptive errors
+panic = "deny"                 # Zero panic!() in library code
+exit = "deny"                  # Never call process::exit in library code
+modulo_arithmetic = "warn"
+redundant_clone = "warn"
+unused_async = "warn"
+if_not_else = "warn"
+cognitive_complexity = "allow" # Soft metric — enforce via code review
+too_many_arguments = "warn"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.95"
+authors = ["Wyatt Au"]
+license = "Apache-2.0"
+description = "Dev-trend crawler: GitHub / crates.io / Hacker News snapshots, velocity scoring, personal relevance ranking"
+repository = "https://github.com/WyattAu/trendkit"
+homepage = "https://github.com/WyattAu/trendkit"
+readme = "README.md"
+keywords = ["trends", "github", "crawler", "developer-tools"]
+categories = ["command-line-utilities", "development-tools"]
+
+[workspace.dependencies]
+trendkit-core = { path = "crates/trendkit-core", version = "0.1.0" }
+trendkit-profile = { path = "crates/trendkit-profile", version = "0.1.0" }
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+lto = "thin"
