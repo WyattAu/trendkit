@@ -7,10 +7,12 @@
 //! [`clock_kit::Clock`] so collectors and scoring are deterministic under
 //! test.
 
+pub mod ai;
 pub mod clock;
 pub mod cratesio;
 pub mod error;
 pub mod github;
+pub mod hf;
 pub mod hn;
 pub mod model;
 pub mod score;

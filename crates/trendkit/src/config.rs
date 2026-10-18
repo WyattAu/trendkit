@@ -37,6 +37,15 @@ pub struct Settings {
     /// File containing the Telegram bot token (fleet convention).
     #[serde(default = "default_token_file")]
     pub telegram_token_file: PathBuf,
+    /// OpenAI-compatible base URL for the AI digest.
+    #[serde(default = "default_ai_base_url")]
+    pub ai_base_url: String,
+    /// Chat model for the AI digest.
+    #[serde(default = "default_ai_model")]
+    pub ai_model: String,
+    /// API key for the AI digest (falls back to `TRENDKIT_AI_API_KEY`).
+    #[serde(default)]
+    pub ai_api_key: Option<Sensitive<String>>,
 }
 
 fn default_db_path() -> PathBuf {
@@ -59,6 +68,14 @@ fn default_token_file() -> PathBuf {
     PathBuf::from("/etc/alertmanager/telegram-token")
 }
 
+fn default_ai_base_url() -> String {
+    "https://api.deepseek.com".to_owned()
+}
+
+fn default_ai_model() -> String {
+    "deepseek-chat".to_owned()
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {
@@ -69,6 +86,9 @@ impl Default for Settings {
             window_days: default_window_days(),
             telegram_chat_id: None,
             telegram_token_file: default_token_file(),
+            ai_base_url: default_ai_base_url(),
+            ai_model: default_ai_model(),
+            ai_api_key: None,
         }
     }
 }
@@ -117,6 +137,11 @@ pub fn load(config: Option<&Path>) -> Result<Settings> {
 
     if settings.github_token.is_none() {
         settings.github_token = std::env::var("GH_TOKEN").ok().map(Sensitive::new);
+    }
+    if settings.ai_api_key.is_none() {
+        settings.ai_api_key = std::env::var("TRENDKIT_AI_API_KEY")
+            .ok()
+            .map(Sensitive::new);
     }
     Ok(settings)
 }

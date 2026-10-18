@@ -17,6 +17,8 @@ pub enum SourceKind {
     HnStory,
     /// crates.io crate; score = total downloads.
     Crate,
+    /// HuggingFace model; score = downloads.
+    HfModel,
 }
 
 impl SourceKind {
@@ -27,6 +29,7 @@ impl SourceKind {
             SourceKind::GithubRepo => "github_repo",
             SourceKind::HnStory => "hn_story",
             SourceKind::Crate => "crate",
+            SourceKind::HfModel => "hf_model",
         }
     }
 
@@ -37,6 +40,7 @@ impl SourceKind {
             SourceKind::GithubRepo => "GH",
             SourceKind::HnStory => "HN",
             SourceKind::Crate => "CR",
+            SourceKind::HfModel => "HF",
         }
     }
 
@@ -47,6 +51,7 @@ impl SourceKind {
             "github_repo" => Some(SourceKind::GithubRepo),
             "hn_story" => Some(SourceKind::HnStory),
             "crate" => Some(SourceKind::Crate),
+            "hf_model" => Some(SourceKind::HfModel),
             _ => None,
         }
     }

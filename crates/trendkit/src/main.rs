@@ -18,6 +18,7 @@ use clock_kit::SystemClock;
 use config_kit::Sensitive;
 use trendkit_core::cratesio::CratesSource;
 use trendkit_core::github::GithubSource;
+use trendkit_core::hf::HfSource;
 use trendkit_core::hn::HnSource;
 use trendkit_core::source::{CollectCtx, TrendSource};
 use trendkit_core::store::Store;
@@ -69,6 +70,9 @@ enum Command {
         /// Also send the markdown report via Telegram.
         #[arg(long, default_value_t = false)]
         telegram: bool,
+        /// Prepend an AI briefing (needs ai_api_key; skips if absent).
+        #[arg(long, default_value_t = false)]
+        ai: bool,
     },
     /// Manage the personal relevance profile.
     Profile {
@@ -96,6 +100,7 @@ enum SourceSel {
     Hn,
     Cratesio,
     Trending,
+    Huggingface,
 }
 
 #[tokio::main]
@@ -132,7 +137,8 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
             markdown,
             personal,
             telegram,
-        } => cmd_report(settings, top, window, markdown, personal, telegram).await,
+            ai,
+        } => cmd_report(settings, top, window, markdown, personal, telegram, ai).await,
         Command::Profile { cmd } => cmd_profile(settings, cmd).await,
     }
 }
@@ -173,11 +179,12 @@ async fn cmd_collect(
     };
 
     let selected: &[&str] = match sel {
-        SourceSel::All => &["github", "hn", "cratesio", "trending"],
+        SourceSel::All => &["github", "hn", "cratesio", "trending", "huggingface"],
         SourceSel::Github => &["github"],
         SourceSel::Hn => &["hn"],
         SourceSel::Cratesio => &["cratesio"],
         SourceSel::Trending => &["trending"],
+        SourceSel::Huggingface => &["huggingface"],
     };
 
     for name in selected {
@@ -190,6 +197,7 @@ async fn cmd_collect(
             "hn" => HnSource::new().collect(&ctx).await?,
             "cratesio" => CratesSource::new().collect(&ctx).await?,
             "trending" => TrendingSource::new().collect(&ctx).await?,
+            "huggingface" => HfSource::new().collect(&ctx).await?,
             other => anyhow::bail!("unknown source: {other}"),
         };
         println!(
@@ -228,6 +236,7 @@ async fn cmd_report(
     markdown: bool,
     personal: bool,
     telegram: bool,
+    ai: bool,
 ) -> Result<()> {
     let store = open_store(&settings)?;
     let rows = store
@@ -274,10 +283,40 @@ async fn cmd_report(
     };
     print!("{text}");
 
+    let mut telegram_text: Option<String> = None;
+    if ai {
+        match ai_digest(&settings, &text).await {
+            Ok(Some(briefing)) => {
+                println!("\n## AI briefing\n\n{briefing}");
+                // Briefing first on mobile; the tail table is what
+                // truncation eats.
+                telegram_text = Some(format!("AI briefing:\n{briefing}\n\n{text}"));
+            }
+            Ok(None) => eprintln!("note: no ai_api_key configured — AI briefing skipped"),
+            Err(err) => eprintln!("warning: AI briefing failed: {err}"),
+        }
+    }
+
     if telegram {
-        send_telegram_digest(&settings, &text).await?;
+        send_telegram_digest(&settings, telegram_text.as_deref().unwrap_or(&text)).await?;
     }
     Ok(())
+}
+
+/// Build the AI briefing; `Ok(None)` when no key is configured.
+async fn ai_digest(settings: &config::Settings, report_text: &str) -> Result<Option<String>> {
+    let Some(key) = settings.ai_api_key.as_ref() else {
+        return Ok(None);
+    };
+    let config = trendkit_core::ai::AiDigestConfig {
+        base_url: settings.ai_base_url.clone(),
+        api_key: key.expose().to_owned(),
+        model: settings.ai_model.clone(),
+    };
+    trendkit_core::ai::summarize(&config, report_text)
+        .await
+        .map(Some)
+        .map_err(Into::into)
 }
 
 /// Resolve the bot token: env override, else the fleet token file.

@@ -3,6 +3,15 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
+## Unreleased (0.3.0-dev)
+
+- **HuggingFace source**: trending models via the public Hub API
+  (`trendingScore` sort); score = downloads, likes in `extra1`; HF tags
+  become topics so the personal profile scores model trends too.
+- **AI briefing** (`report --ai`): any OpenAI-compatible endpoint
+  (default DeepSeek), key via `ai_api_key`/`TRENDKIT_AI_API_KEY`;
+  absent key skips gracefully. Briefing leads the Telegram digest.
+
 ## 0.2.0 — 2026-10-18
 
 - **Unified store (schema v2).** One `subjects`/`observations` pair for
