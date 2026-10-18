@@ -1,5 +1,9 @@
 # trendkit
 
+[![CI](https://github.com/WyattAu/trendkit/actions/workflows/ci.yml/badge.svg)](https://github.com/WyattAu/trendkit/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.95+-orange.svg)](https://www.rust-lang.org/)
+
 Dev-trend crawler in Rust: snapshot GitHub trending signals into SQLite,
 score star velocity over time windows, and rank results by *personal*
 relevance against your own repository profile.
