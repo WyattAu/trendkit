@@ -8,14 +8,16 @@
 //! test.
 
 pub mod clock;
+pub mod cratesio;
 pub mod error;
 pub mod github;
+pub mod hn;
 pub mod model;
 pub mod score;
 pub mod source;
 pub mod store;
 
 pub use error::{Result, TrendError};
-pub use model::{RepoListed, RepoRecord, RepoSnapshot, VelocityRow};
+pub use model::{Observation, RepoListed, SourceKind, SubjectRecord, VelocityRow};
 pub use source::{CollectCtx, CollectReport, TrendSource};
 pub use store::Store;

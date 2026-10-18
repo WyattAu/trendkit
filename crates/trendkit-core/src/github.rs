@@ -19,12 +19,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::clock::{iso_date_from_unix, unix_seconds};
 use crate::error::{Result, TrendError};
-use crate::model::{RepoListed, RepoRecord, RepoSnapshot};
+use crate::model::{Observation, RepoListed, SourceKind, SubjectRecord};
 use crate::source::{CollectCtx, CollectReport, TrendSource, SEARCH_PACING};
 
 const API_ROOT: &str = "https://api.github.com";
 const SEARCH_PATH: &str = "/search/repositories";
-const USER_AGENT: &str = "trendkit/0.1";
+const USER_AGENT: &str = "trendkit/0.2";
 const API_VERSION: &str = "2022-11-28";
 const PER_PAGE: u32 = 100;
 /// Attempts per search page before declaring the endpoint rate-limited.
@@ -86,16 +86,15 @@ impl GithubSource {
             let response: SearchResponse = self.search_get(SEARCH_PATH, &params).await?;
             let count = response.items.len();
             for item in response.items {
-                let snap = RepoSnapshot {
+                let observation = Observation {
                     ts: now,
-                    stars: item.stargazers_count,
-                    forks: item.forks_count,
-                    watchers: item.watchers_count,
-                    open_issues: item.open_issues_count,
+                    score: item.stargazers_count,
+                    extra1: item.forks_count,
+                    extra2: item.watchers_count,
                 };
-                let record = RepoRecord::from(item);
-                let repo_id = ctx.store.upsert_repo(&record)?;
-                ctx.store.insert_snapshot(repo_id, &snap)?;
+                let subject = SubjectRecord::from(item);
+                let subject_id = ctx.store.upsert_subject(&subject)?;
+                ctx.store.insert_observation(subject_id, &observation)?;
                 total += 1;
             }
             if count < PER_PAGE as usize || page == ctx.pages {
@@ -274,29 +273,34 @@ pub(crate) struct Owner {
     pub(crate) login: String,
 }
 
-/// Split `owner/repo` into its parts; degenerate inputs map to themselves.
-fn split_full_name(full_name: &str) -> (String, String) {
-    match full_name.split_once('/') {
-        Some((owner, name)) => (owner.to_owned(), name.to_owned()),
-        None => (full_name.to_owned(), full_name.to_owned()),
-    }
-}
-
-impl From<RepoJson> for RepoRecord {
+impl From<RepoJson> for SubjectRecord {
     fn from(json: RepoJson) -> Self {
-        let (owner, name) = split_full_name(&json.full_name);
-        RepoRecord {
-            full_name: json.full_name,
-            owner,
-            name: json.name.unwrap_or(name),
-            description: json.description,
-            language: json.language,
-            html_url: json.html_url,
-            created_at: json.created_at,
+        let full_name = json.full_name;
+        let url = json.html_url.clone().unwrap_or_else(|| {
+            if full_name.is_empty() {
+                String::new()
+            } else if full_name.contains('/') {
+                format!("{GITHUB_WEB_ROOT}/{full_name}")
+            } else {
+                // Degenerate payload without an owner object: synthesize
+                // a same-name owner path so the subject still gets a URL.
+                format!("{GITHUB_WEB_ROOT}/{full_name}/{full_name}")
+            }
+        });
+        SubjectRecord {
+            kind: SourceKind::GithubRepo,
+            key: full_name,
+            title: json.description,
+            lang: json.language,
+            url: Some(url),
             topics: json.topics,
+            created_at: json.created_at,
         }
     }
 }
+
+/// Web root used to synthesize repo URLs when the payload omits them.
+pub const GITHUB_WEB_ROOT: &str = "https://github.com";
 
 impl From<RepoJson> for RepoListed {
     fn from(json: RepoJson) -> Self {
@@ -312,15 +316,19 @@ impl From<RepoJson> for RepoListed {
     }
 }
 
-/// Parse a GitHub search response body into records (used by tests and
+/// Parse a GitHub search response body into subjects (used by tests and
 /// available to callers who capture raw payloads).
 ///
 /// # Errors
 /// Fails when the payload is not a GitHub search response.
-pub fn parse_search_json(payload: &str) -> Result<Vec<RepoRecord>> {
+pub fn parse_search_json(payload: &str) -> Result<Vec<SubjectRecord>> {
     let response: SearchResponse = serde_json::from_str(payload)
         .map_err(|e| TrendError::Config(format!("invalid search payload: {e}")))?;
-    Ok(response.items.into_iter().map(RepoRecord::from).collect())
+    Ok(response
+        .items
+        .into_iter()
+        .map(SubjectRecord::from)
+        .collect())
 }
 
 #[cfg(test)]
@@ -359,22 +367,29 @@ mod tests {
     }"#;
 
     #[test]
-    fn parse_extracts_records_and_defaults() {
-        let records = parse_search_json(SAMPLE).unwrap();
-        assert_eq!(records.len(), 2);
+    fn parse_extracts_subjects_with_fallbacks() {
+        let subjects = parse_search_json(SAMPLE).unwrap();
+        assert_eq!(subjects.len(), 2);
 
-        assert_eq!(records[0].full_name, "tokio-rs/tokio");
-        assert_eq!(records[0].owner, "tokio-rs");
-        assert_eq!(records[0].name, "tokio");
-        assert_eq!(records[0].language.as_deref(), Some("Rust"));
+        assert_eq!(subjects[0].kind, SourceKind::GithubRepo);
+        assert_eq!(subjects[0].key, "tokio-rs/tokio");
+        assert_eq!(subjects[0].title.as_deref(), Some("A runtime for Rust"));
+        assert_eq!(subjects[0].lang.as_deref(), Some("Rust"));
         assert_eq!(
-            records[0].topics,
+            subjects[0].url.as_deref(),
+            Some("https://github.com/tokio-rs/tokio")
+        );
+        assert_eq!(
+            subjects[0].topics,
             vec!["async".to_owned(), "runtime".to_owned()]
         );
 
-        // Degenerate second item: owner and name fall back to full_name.
-        assert_eq!(records[1].owner, "sparse-repo");
-        assert_eq!(records[1].name, "sparse-repo");
+        // Degenerate second item: url synthesized from full_name.
+        assert_eq!(subjects[1].key, "sparse-repo");
+        assert_eq!(
+            subjects[1].url.as_deref(),
+            Some("https://github.com/sparse-repo/sparse-repo")
+        );
     }
 
     #[test]

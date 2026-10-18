@@ -1,39 +1,99 @@
 //! Shared data model for snapshot collection and reporting.
+//!
+//! One subject/observation pair serves every source: a *subject* is a
+//! thing being tracked (repo, HN story, crate), an *observation* is one
+//! point-in-time reading of its headline counter. Velocity is always
+//! `Δscore / Δdays` over the window; what "score" means is documented
+//! per [`SourceKind`].
 
-/// A repository's identity, stored once per repo and updated on later scans.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RepoRecord {
-    /// GitHub full name (`owner/repo`).
-    pub full_name: String,
-    /// Owner login, derived from `full_name` when the payload omits it.
-    pub owner: String,
-    /// Repository name.
-    pub name: String,
-    /// Short description, if any.
-    pub description: Option<String>,
-    /// Primary language, if any.
-    pub language: Option<String>,
-    /// Canonical URL.
-    pub html_url: Option<String>,
-    /// Creation timestamp as returned by GitHub (RFC 3339), if present.
-    pub created_at: Option<String>,
-    /// Repository topics, lowercased by GitHub.
-    pub topics: Vec<String>,
+use std::fmt;
+
+/// What kind of thing a subject is, and what its score counts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SourceKind {
+    /// GitHub repository; score = stars.
+    GithubRepo,
+    /// Hacker News story; score = points.
+    HnStory,
+    /// crates.io crate; score = total downloads.
+    Crate,
 }
 
-/// A point-in-time observation of one repository's counters.
+impl SourceKind {
+    /// Stable string stored in the database.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            SourceKind::GithubRepo => "github_repo",
+            SourceKind::HnStory => "hn_story",
+            SourceKind::Crate => "crate",
+        }
+    }
+
+    /// Short tag for report tables.
+    #[must_use]
+    pub const fn tag(self) -> &'static str {
+        match self {
+            SourceKind::GithubRepo => "GH",
+            SourceKind::HnStory => "HN",
+            SourceKind::Crate => "CR",
+        }
+    }
+
+    /// Parse the database string back.
+    #[must_use]
+    pub fn parse(s: &str) -> Option<SourceKind> {
+        match s {
+            "github_repo" => Some(SourceKind::GithubRepo),
+            "hn_story" => Some(SourceKind::HnStory),
+            "crate" => Some(SourceKind::Crate),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for SourceKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// A thing being tracked, stored once per `(kind, key)` and enriched on
+/// later scans. `title` carries the human-readable line (repo
+/// description, story title, crate description).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RepoSnapshot {
-    /// Unix seconds at observation time.
+pub struct SubjectRecord {
+    /// Subject type.
+    pub kind: SourceKind,
+    /// Source-stable identifier: `owner/repo`, HN object id, crate name.
+    pub key: String,
+    /// Human-readable line.
+    pub title: Option<String>,
+    /// Primary language (GitHub only today).
+    pub lang: Option<String>,
+    /// Canonical URL.
+    pub url: Option<String>,
+    /// Topics/keywords, lowercased by the source.
+    pub topics: Vec<String>,
+    /// Source creation timestamp (RFC 3339 or epoch), when available.
+    pub created_at: Option<String>,
+}
+
+/// One point-in-time reading of a subject's counters.
+///
+/// `extra1`/`extra2` are source-defined (GitHub: forks/watchers, HN:
+/// comments, crates.io: recent downloads) — velocity only ever uses
+/// `score`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Observation {
+    /// Unix seconds at reading time.
     pub ts: i64,
-    /// Star count.
-    pub stars: i64,
-    /// Fork count.
-    pub forks: i64,
-    /// Watcher count.
-    pub watchers: i64,
-    /// Open issue (and PR) count.
-    pub open_issues: i64,
+    /// Headline counter (stars / points / downloads).
+    pub score: i64,
+    /// Source-defined secondary counter.
+    pub extra1: i64,
+    /// Source-defined tertiary counter.
+    pub extra2: i64,
 }
 
 /// One row from a user's repository listing, used for the personal profile.
@@ -55,23 +115,58 @@ pub struct RepoListed {
     pub stars: i64,
 }
 
-/// A velocity computation for one repository over a snapshot window.
+/// A velocity computation for one subject over a snapshot window.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VelocityRow {
-    /// GitHub full name (`owner/repo`).
-    pub full_name: String,
+    /// Subject type.
+    pub kind: SourceKind,
+    /// Source-stable identifier.
+    pub key: String,
+    /// Human-readable line, if any.
+    pub title: Option<String>,
     /// Primary language, if any.
-    pub language: Option<String>,
-    /// Short description, if any.
-    pub description: Option<String>,
-    /// Topics attached to the repository.
+    pub lang: Option<String>,
+    /// Canonical URL, if any.
+    pub url: Option<String>,
+    /// Topics attached to the subject.
     pub topics: Vec<String>,
-    /// Most recent observed star count.
-    pub stars_now: i64,
-    /// Earliest observed star count inside the window.
-    pub stars_prev: i64,
+    /// Most recent observed score.
+    pub score_now: i64,
+    /// Earliest observed score inside the window.
+    pub score_prev: i64,
     /// Seconds between the two observations.
     pub window_secs: i64,
-    /// Stars gained per day over the window (see [`crate::score`]).
+    /// Score gained per day over the window (see [`crate::score`]).
     pub velocity_per_day: f64,
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+    use super::*;
+
+    #[test]
+    fn source_kind_roundtrips() {
+        for kind in [
+            SourceKind::GithubRepo,
+            SourceKind::HnStory,
+            SourceKind::Crate,
+        ] {
+            assert_eq!(SourceKind::parse(kind.as_str()), Some(kind));
+        }
+        assert_eq!(SourceKind::parse("nope"), None);
+    }
+
+    #[test]
+    fn tags_are_distinct() {
+        let tags = [
+            SourceKind::GithubRepo.tag(),
+            SourceKind::HnStory.tag(),
+            SourceKind::Crate.tag(),
+        ];
+        assert_eq!(tags.len(), 3);
+        assert_ne!(tags[0], tags[1]);
+        assert_ne!(tags[1], tags[2]);
+    }
 }

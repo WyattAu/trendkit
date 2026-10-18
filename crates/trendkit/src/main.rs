@@ -13,10 +13,12 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use clock_kit::SystemClock;
 use config_kit::Sensitive;
+use trendkit_core::cratesio::CratesSource;
 use trendkit_core::github::GithubSource;
+use trendkit_core::hn::HnSource;
 use trendkit_core::source::{CollectCtx, TrendSource};
 use trendkit_core::store::Store;
 use trendkit_profile::{update_profile, Profile};
@@ -36,17 +38,20 @@ struct Cli {
 enum Command {
     /// Collect snapshot observations into the store.
     Collect {
-        /// Search pages to pull, 100 repos each (overrides config).
+        /// Which sources to run.
+        #[arg(long, value_enum, default_value_t = SourceSel::All)]
+        source: SourceSel,
+        /// Pages per source (overrides config).
         #[arg(long)]
         pages: Option<u32>,
-        /// Days back for the `created:>` query (overrides config).
+        /// Days back for "recent" queries (overrides config).
         #[arg(long)]
         window_days: Option<u32>,
         /// Skip the personal-profile refresh.
         #[arg(long, default_value_t = false)]
         no_profile: bool,
     },
-    /// Report the highest-velocity repositories.
+    /// Report the highest-velocity subjects.
     Report {
         /// Rows to show.
         #[arg(long, default_value_t = 25)]
@@ -54,7 +59,7 @@ enum Command {
         /// Velocity window in days.
         #[arg(long, default_value_t = 14)]
         window: u32,
-        /// Emit markdown (with repo links) instead of a table.
+        /// Emit markdown (with links) instead of a table.
         #[arg(long, default_value_t = false)]
         markdown: bool,
         /// Rank by personal relevance (needs a stored profile).
@@ -80,6 +85,14 @@ enum ProfileCommand {
     Show,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum SourceSel {
+    All,
+    Github,
+    Hn,
+    Cratesio,
+}
+
 #[tokio::main]
 async fn main() -> ExitCode {
     let cli = Cli::parse();
@@ -103,10 +116,11 @@ async fn main() -> ExitCode {
 async fn run(command: Command, settings: config::Settings) -> Result<()> {
     match command {
         Command::Collect {
+            source,
             pages,
             window_days,
             no_profile,
-        } => cmd_collect(settings, pages, window_days, no_profile).await,
+        } => cmd_collect(settings, source, pages, window_days, no_profile).await,
         Command::Report {
             top,
             window,
@@ -139,34 +153,49 @@ fn warn_if_unauthenticated(settings: &config::Settings) {
 
 async fn cmd_collect(
     settings: config::Settings,
+    sel: SourceSel,
     pages: Option<u32>,
     window_days: Option<u32>,
     no_profile: bool,
 ) -> Result<()> {
-    warn_if_unauthenticated(&settings);
     let store = Arc::new(open_store(&settings)?);
-    let source = GithubSource::new(token_of(&settings));
     let ctx = CollectCtx {
         clock: Arc::new(SystemClock),
-        store,
+        store: store.clone(),
         pages: pages.unwrap_or(settings.github_pages),
         window_days: window_days.unwrap_or(settings.window_days),
     };
 
-    let started = std::time::Instant::now();
-    let report = source
-        .collect(&ctx)
-        .await
-        .context("github collection failed")?;
-    println!(
-        "github: {} observations over {} page(s) in {:.1}s -> {}",
-        report.items,
-        report.pages,
-        started.elapsed().as_secs_f64(),
-        settings.db_path.display()
-    );
+    let selected: &[&str] = match sel {
+        SourceSel::All => &["github", "hn", "cratesio"],
+        SourceSel::Github => &["github"],
+        SourceSel::Hn => &["hn"],
+        SourceSel::Cratesio => &["cratesio"],
+    };
 
-    if !no_profile {
+    for name in selected {
+        let started = std::time::Instant::now();
+        let report = match *name {
+            "github" => {
+                warn_if_unauthenticated(&settings);
+                GithubSource::new(token_of(&settings)).collect(&ctx).await?
+            }
+            "hn" => HnSource::new().collect(&ctx).await?,
+            "cratesio" => CratesSource::new().collect(&ctx).await?,
+            other => anyhow::bail!("unknown source: {other}"),
+        };
+        println!(
+            "{}: {} observations over {} page(s) in {:.1}s -> {}",
+            report.source,
+            report.items,
+            report.pages,
+            started.elapsed().as_secs_f64(),
+            settings.db_path.display()
+        );
+    }
+
+    if !no_profile && matches!(sel, SourceSel::All | SourceSel::Github) {
+        let source = GithubSource::new(token_of(&settings));
         let profile = update_profile(&source, &settings.github_owner, &ctx.store)
             .await
             .with_context(|| format!("profile refresh for @{}", settings.github_owner))?;
@@ -195,7 +224,7 @@ fn cmd_report(
     let rows = store
         .velocity_rows(window, top)
         .context("velocity query failed")?;
-    let (repos, snapshots) = store.counts().context("store counts failed")?;
+    let (subjects, observations) = store.counts().context("store counts failed")?;
     let last_run = store.last_run().context("last-run query failed")?;
 
     let profile_rows = if personal {
@@ -210,28 +239,23 @@ fn cmd_report(
         );
     }
 
-    let mut header = vec![format!(
-        "trendkit report — window {}d, db {} ({} repos, {} snapshots)",
-        window,
-        settings.db_path.display(),
-        repos,
-        snapshots
-    )];
-    match last_run {
-        Some((ts, source, items)) => header.push(format!(
-            "last collection: {source} wrote {items} observations at unix {ts}"
-        )),
-        None => header.push("last collection: never".to_owned()),
-    }
-    if let Some(p) = &profile {
+    let profile_line = profile.as_ref().map(|p| {
         let top = p
             .top_topics(8)
             .iter()
             .map(|(t, n)| format!("{t}({n})"))
             .collect::<Vec<_>>()
             .join(", ");
-        header.push(format!("profile: {} repos, topics: {}", p.repo_count, top));
-    }
+        format!("profile: {} repos, topics: {}", p.repo_count, top)
+    });
+    let header = report::header_lines(
+        window,
+        &settings.db_path.display().to_string(),
+        subjects,
+        observations,
+        last_run.as_ref().map(|(ts, s, i)| (*ts, s.as_str(), *i)),
+        profile_line,
+    );
 
     let built = report::build_rows(&rows, profile.as_ref());
     let text = if markdown {

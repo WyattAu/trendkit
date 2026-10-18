@@ -1,5 +1,6 @@
 //! Report rendering: plain table and markdown, with optional personal
-//! relevance ranking.
+//! relevance ranking. Rows mix kinds; each row is tagged (GH/HN/CR) and
+//! linked per kind.
 
 use trendkit_core::model::VelocityRow;
 use trendkit_profile::Profile;
@@ -20,8 +21,7 @@ pub fn build_rows<'a>(rows: &'a [VelocityRow], profile: Option<&Profile>) -> Vec
         .iter()
         .map(|row| ReportRow {
             row,
-            score: profile
-                .map(|p| p.score(row.velocity_per_day, row.language.as_deref(), &row.topics)),
+            score: profile.map(|p| p.score(row.velocity_per_day, row.lang.as_deref(), &row.topics)),
         })
         .collect();
     if profile.is_some() {
@@ -32,6 +32,34 @@ pub fn build_rows<'a>(rows: &'a [VelocityRow], profile: Option<&Profile>) -> Vec
         });
     }
     out
+}
+
+/// Compose the header block shown above every report.
+#[must_use]
+pub fn header_lines(
+    window_days: u32,
+    db_display: &str,
+    subjects: i64,
+    observations: i64,
+    last_run: Option<(i64, &str, i64)>,
+    profile_line: Option<String>,
+) -> Vec<String> {
+    let mut header = vec![format!(
+        "trendkit report — window {window_days}d, db {db_display} ({subjects} subjects, {observations} observations)"
+    )];
+    match last_run {
+        Some((ts, source, items)) => header.push(format!(
+            "last collection: {source} wrote {items} observations at unix {ts}"
+        )),
+        None => header.push("last collection: never".to_owned()),
+    }
+    if let Some(line) = profile_line {
+        header.push(line);
+    }
+    header.push(
+        "score = stars (GH) / points (HN) / downloads (CR); velocity = Δscore/day".to_owned(),
+    );
+    header
 }
 
 /// Render the report as plain text.
@@ -46,67 +74,69 @@ pub fn render_plain(rows: &[ReportRow<'_>], header: &[String]) -> String {
         return out;
     }
 
-    let name_width = rows
+    let key_width = rows
         .iter()
-        .map(|r| r.row.full_name.len())
+        .map(|r| r.row.key.len())
         .max()
         .unwrap_or(0)
         .max(4);
     let lang_width = rows
         .iter()
-        .map(|r| r.row.language.as_deref().map_or(0, str::len))
+        .map(|r| r.row.lang.as_deref().map_or(0, str::len))
         .max()
         .unwrap_or(0)
         .max(4);
-
     let score_col = rows.first().is_some_and(|r| r.score.is_some());
+
     let mut table = String::new();
     if score_col {
         table.push_str(&format!(
-            "{:<width$}  {:<lw$}  {:>7}  {:>10}  {:>8}\n",
-            "REPO",
+            "{:<2}  {:<kw$}  {:<lw$}  {:>9}  {:>10}  {:>8}\n",
+            "K",
+            "SUBJECT",
             "LANG",
-            "STARS",
-            "VEL/DAY",
             "SCORE",
-            width = name_width,
+            "VEL/DAY",
+            "PERSONA",
+            kw = key_width,
             lw = lang_width,
         ));
     } else {
         table.push_str(&format!(
-            "{:<width$}  {:<lw$}  {:>7}  {:>10}\n",
-            "REPO",
+            "{:<2}  {:<kw$}  {:<lw$}  {:>9}  {:>10}\n",
+            "K",
+            "SUBJECT",
             "LANG",
-            "STARS",
+            "SCORE",
             "VEL/DAY",
-            width = name_width,
+            kw = key_width,
             lw = lang_width,
         ));
     }
 
     for r in rows {
-        let lang = r.row.language.as_deref().unwrap_or("-");
-        let delta = r.row.stars_now - r.row.stars_prev;
+        let lang = r.row.lang.as_deref().unwrap_or("-");
         if let Some(score) = r.score {
             table.push_str(&format!(
-                "{:<nw$}  {:<lw$}  {:>7}  {:>10.1}  {:>8.1}\n",
-                r.row.full_name,
+                "{:<2}  {:<kw$}  {:<lw$}  {:>9}  {:>10.1}  {:>8.1}\n",
+                r.row.kind.tag(),
+                r.row.key,
                 lang,
-                r.row.stars_now,
+                r.row.score_now,
                 r.row.velocity_per_day,
                 score,
-                nw = name_width,
+                kw = key_width,
                 lw = lang_width,
             ));
         } else {
             table.push_str(&format!(
-                "{:<nw$}  {:<lw$}  {:>7}  {:>+9}Δ {:>10.1}\n",
-                r.row.full_name,
+                "{:<2}  {:<kw$}  {:<lw$}  {:>9}  {:>10.1}\n",
+                r.row.kind.tag(),
+                r.row.key,
                 lang,
-                r.row.stars_now,
-                delta,
+                r.row.score_now,
                 r.row.velocity_per_day,
-                nw = name_width,
+                kw = key_width,
                 lw = lang_width,
             ));
         }
@@ -115,7 +145,7 @@ pub fn render_plain(rows: &[ReportRow<'_>], header: &[String]) -> String {
     out
 }
 
-/// Render the report as a markdown table.
+/// Render the report as a markdown table (repo/story/crate links included).
 #[must_use]
 pub fn render_markdown(rows: &[ReportRow<'_>], header: &[String]) -> String {
     let mut out = String::new();
@@ -128,51 +158,42 @@ pub fn render_markdown(rows: &[ReportRow<'_>], header: &[String]) -> String {
         return out;
     }
 
-    out.push_str("\n| Repo | Lang | Stars | Velocity/day");
+    out.push_str("\n| K | Subject | Lang | Score | V/day |");
     if rows.first().is_some_and(|r| r.score.is_some()) {
-        out.push_str(" | Score |");
-    } else {
-        out.push_str(" |");
+        out.push_str(" Score |");
     }
-    out.push_str("\n|---|---|---:|---:|\n");
+    out.push_str("\n|---|---|---|---:|---:|");
     if rows.first().is_some_and(|r| r.score.is_some()) {
-        out.insert(out.len(), '\n');
+        out.push_str("---:|");
     }
+    out.push('\n');
 
     for r in rows {
-        let lang = r.row.language.as_deref().unwrap_or("-");
-        let desc = r
+        let lang = r.row.lang.as_deref().unwrap_or("-");
+        let link = match &r.row.url {
+            Some(url) => format!("[{}]({})", r.row.key.replace('|', "/"), url),
+            None => r.row.key.clone(),
+        };
+        let title = r
             .row
-            .description
+            .title
             .as_deref()
-            .map_or(String::new(), |d| format!(" — {}", d.replace('|', "/")));
-        match r.score {
-            Some(score) => out.push_str(&format!(
-                "| [{}]({}){} | {} | {} | {:.1} | {:.1} |\n",
-                r.row.full_name,
-                html_url(&r.row.full_name),
-                desc,
-                lang,
-                r.row.stars_now,
-                r.row.velocity_per_day,
-                score,
-            )),
-            None => out.push_str(&format!(
-                "| [{}]({}){} | {} | {} | {:.1} |\n",
-                r.row.full_name,
-                html_url(&r.row.full_name),
-                desc,
-                lang,
-                r.row.stars_now,
-                r.row.velocity_per_day,
-            )),
+            .map_or(String::new(), |t| format!(" — {}", t.replace('|', "/")));
+        out.push_str(&format!(
+            "| {} | {}{} | {} | {} | {:.1} |",
+            r.row.kind.tag(),
+            link,
+            title,
+            lang,
+            r.row.score_now,
+            r.row.velocity_per_day,
+        ));
+        if let Some(score) = r.score {
+            out.push_str(&format!(" {:.1} |", score));
         }
+        out.push('\n');
     }
     out
-}
-
-fn html_url(full_name: &str) -> String {
-    format!("https://github.com/{full_name}")
 }
 
 #[cfg(test)]
@@ -180,16 +201,18 @@ mod tests {
     #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
     use super::*;
-    use trendkit_core::model::VelocityRow;
+    use trendkit_core::model::SourceKind;
 
-    fn row(name: &str, lang: Option<&str>, velocity: f64) -> VelocityRow {
+    fn row(kind: SourceKind, key: &str, lang: Option<&str>, velocity: f64) -> VelocityRow {
         VelocityRow {
-            full_name: name.to_owned(),
-            language: lang.map(str::to_owned),
-            description: Some("desc | with pipe".to_owned()),
+            kind,
+            key: key.to_owned(),
+            title: Some("desc | with pipe".to_owned()),
+            lang: lang.map(str::to_owned),
+            url: Some(format!("https://example.com/{key}")),
             topics: vec!["cli".to_owned()],
-            stars_now: 100,
-            stars_prev: 50,
+            score_now: 100,
+            score_prev: 50,
             window_secs: 86_400,
             velocity_per_day: velocity,
         }
@@ -197,20 +220,25 @@ mod tests {
 
     #[test]
     fn plain_report_lists_velocity_order() {
-        let rows = vec![row("a/one", Some("Rust"), 70.0), row("b/two", None, 5.0)];
+        let rows = vec![
+            row(SourceKind::GithubRepo, "a/one", Some("Rust"), 70.0),
+            row(SourceKind::Crate, "serde", None, 5.0),
+        ];
         let built = build_rows(&rows, None);
         let text = render_plain(&built, &["header".to_owned()]);
         assert!(text.starts_with("header\n"));
         assert!(text.contains("a/one"));
         assert!(text.contains("70.0"));
-        assert!(!text.contains("SCORE"));
+        assert!(text.contains("GH"));
+        assert!(text.contains("CR"));
+        assert!(!text.contains("PERSONA"));
     }
 
     #[test]
     fn personal_report_resorts_by_score() {
         let rows = vec![
-            row("a/irrelevant", Some("Java"), 100.0),
-            row("b/relevant", Some("Rust"), 1.0),
+            row(SourceKind::GithubRepo, "a/irrelevant", Some("Java"), 100.0),
+            row(SourceKind::GithubRepo, "b/relevant", Some("Rust"), 1.0),
         ];
         let profile_rows = vec![trendkit_core::model::RepoListed {
             full_name: "x/rust-repo".to_owned(),
@@ -223,19 +251,29 @@ mod tests {
         }];
         let profile = Profile::from_repos(&profile_rows);
         let built = build_rows(&rows, Some(&profile));
-        assert_eq!(built[0].row.full_name, "b/relevant");
+        assert_eq!(built[0].row.key, "b/relevant");
         let text = render_plain(&built, &[]);
-        assert!(text.contains("SCORE"));
+        assert!(text.contains("PERSONA"));
     }
 
     #[test]
     fn markdown_escapes_pipes_in_descriptions() {
-        let rows = vec![row("a/one", Some("Rust"), 7.0)];
+        let rows = vec![row(SourceKind::GithubRepo, "a/one", Some("Rust"), 7.0)];
         let built = build_rows(&rows, None);
         let text = render_markdown(&built, &[]);
         assert!(text.contains("desc / with pipe"));
         assert!(!text.contains("desc | with"));
-        assert!(text.contains("https://github.com/a/one"));
+        assert!(text.contains("https://example.com/a/one"));
+    }
+
+    #[test]
+    fn markdown_with_scores_has_extra_column() {
+        let rows = vec![row(SourceKind::HnStory, "42", None, 7.0)];
+        let profile = Profile::default();
+        let built = build_rows(&rows, Some(&profile));
+        let text = render_markdown(&built, &[]);
+        assert!(text.contains("Score |"));
+        assert!(text.contains("| HN |"));
     }
 
     #[test]
@@ -243,5 +281,11 @@ mod tests {
         let built = build_rows(&[], None);
         let text = render_plain(&built, &[]);
         assert!(text.contains("trendkit collect"));
+    }
+
+    #[test]
+    fn header_notes_score_semantics() {
+        let lines = header_lines(14, "db", 1, 2, None, None);
+        assert!(lines.iter().any(|l| l.contains("stars (GH)")));
     }
 }
