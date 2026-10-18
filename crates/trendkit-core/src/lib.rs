@@ -16,6 +16,7 @@ pub mod model;
 pub mod score;
 pub mod source;
 pub mod store;
+pub mod telegram;
 pub mod trending;
 
 pub use error::{Result, TrendError};

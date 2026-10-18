@@ -66,6 +66,9 @@ enum Command {
         /// Rank by personal relevance (needs a stored profile).
         #[arg(long, default_value_t = false)]
         personal: bool,
+        /// Also send the markdown report via Telegram.
+        #[arg(long, default_value_t = false)]
+        telegram: bool,
     },
     /// Manage the personal relevance profile.
     Profile {
@@ -128,7 +131,8 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
             window,
             markdown,
             personal,
-        } => cmd_report(settings, top, window, markdown, personal),
+            telegram,
+        } => cmd_report(settings, top, window, markdown, personal, telegram).await,
         Command::Profile { cmd } => cmd_profile(settings, cmd).await,
     }
 }
@@ -217,12 +221,13 @@ async fn cmd_collect(
     Ok(())
 }
 
-fn cmd_report(
+async fn cmd_report(
     settings: config::Settings,
     top: u32,
     window: u32,
     markdown: bool,
     personal: bool,
+    telegram: bool,
 ) -> Result<()> {
     let store = open_store(&settings)?;
     let rows = store
@@ -268,6 +273,61 @@ fn cmd_report(
         report::render_plain(&built, &header)
     };
     print!("{text}");
+
+    if telegram {
+        send_telegram_digest(&settings, &text).await?;
+    }
+    Ok(())
+}
+
+/// Resolve the bot token: env override, else the fleet token file.
+fn telegram_token(settings: &config::Settings) -> Result<String> {
+    if let Ok(token) = std::env::var("TRENDKIT_TELEGRAM_TOKEN") {
+        if !token.trim().is_empty() {
+            return Ok(token);
+        }
+    }
+    let path = &settings.telegram_token_file;
+    let token = std::fs::read_to_string(path)
+        .with_context(|| format!("read telegram token file {}", path.display()))?
+        .trim()
+        .to_owned();
+    if token.is_empty() {
+        anyhow::bail!("telegram token file {} is empty", path.display());
+    }
+    Ok(token)
+}
+
+fn chat_id_of(settings: &config::Settings) -> Result<String> {
+    if let Ok(id) = std::env::var("TRENDKIT_TELEGRAM_CHAT_ID") {
+        if !id.trim().is_empty() {
+            return Ok(id);
+        }
+    }
+    settings
+        .telegram_chat_id
+        .clone()
+        .filter(|id| !id.trim().is_empty())
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "no telegram chat id — set telegram_chat_id in trendkit.toml or TRENDKIT_TELEGRAM_CHAT_ID"
+            )
+        })
+}
+
+async fn send_telegram_digest(settings: &config::Settings, report_text: &str) -> Result<()> {
+    let token = telegram_token(settings)?;
+    let chat_id = chat_id_of(settings)?;
+    let message = trendkit_core::telegram::truncate_for_telegram(
+        report_text,
+        trendkit_core::telegram::TELEGRAM_MAX_CHARS,
+    );
+    // Markdown rendering is the transport format; the plain report's
+    // table characters are harmless to the legacy parser.
+    trendkit_core::telegram::send_markdown(&token, &chat_id, &message)
+        .await
+        .context("telegram send failed")?;
+    println!("telegram: digest sent to chat {chat_id}");
     Ok(())
 }
 

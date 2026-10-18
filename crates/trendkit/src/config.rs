@@ -31,6 +31,12 @@ pub struct Settings {
     /// "Recent window" for trending queries and report velocity, in days.
     #[serde(default = "default_window_days")]
     pub window_days: u32,
+    /// Telegram chat id for `report --telegram`.
+    #[serde(default)]
+    pub telegram_chat_id: Option<String>,
+    /// File containing the Telegram bot token (fleet convention).
+    #[serde(default = "default_token_file")]
+    pub telegram_token_file: PathBuf,
 }
 
 fn default_db_path() -> PathBuf {
@@ -49,6 +55,10 @@ fn default_window_days() -> u32 {
     14
 }
 
+fn default_token_file() -> PathBuf {
+    PathBuf::from("/etc/alertmanager/telegram-token")
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {
@@ -57,6 +67,8 @@ impl Default for Settings {
             github_owner: default_owner(),
             github_pages: default_pages(),
             window_days: default_window_days(),
+            telegram_chat_id: None,
+            telegram_token_file: default_token_file(),
         }
     }
 }

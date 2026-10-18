@@ -6,3 +6,4 @@ Cargo.lock.orig
 mutants.out*
 .cobertura.xml
 coverage
+trendkit.toml

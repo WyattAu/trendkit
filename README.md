@@ -46,9 +46,16 @@ window_days   = 14
 
 ## Status
 
-v0.1 — milestone ①: GitHub source, SQLite snapshot store, velocity
-scoring, personal profile. HN/crates.io sources, trending-page HTML
-scrape (via `crawlkit`), and Telegram digests are planned milestones.
+v0.2 — GitHub Search + HN + crates.io sources over one unified
+subject/observation store (schema v2, migrated from v1), trending-page
+HTML scrape, velocity scoring, personal relevance, Telegram digest
+(`report --telegram`, token via `/etc/alertmanager/telegram-token` per
+fleet convention). Scheduled collection: `deploy/trendkit-collect.*`
+systemd units.
+
+The `crawlkit-engine` library integration is deliberately deferred: its
+default feature set pulls wasmtime/sqlx/redis for a single HTML GET.
+Revisit when crawlkit ships a lean fetch facade.
 
 Velocity is only meaningful after ≥ 2 collection runs; until then the
 report shows zero velocity by design rather than fabricating spikes from

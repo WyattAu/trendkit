@@ -1,0 +1,14 @@
+[Unit]
+Description=trendkit dev-trend snapshot collection + Telegram digest
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Runs as root like sys-check: the Telegram token file
+# (/etc/alertmanager/telegram-token) is root-only by fleet convention.
+WorkingDirectory=/home/wyatt/dev/src/github.com/WyattAu/trendkit
+EnvironmentFile=/etc/trendkit/trendkit.env
+ExecStart=/home/wyatt/dev/src/github.com/WyattAu/trendkit/target/release/trendkit collect --source all
+ExecStartPost=/home/wyatt/dev/src/github.com/WyattAu/trendkit/target/release/trendkit report --personal --top 15 --markdown --telegram
+SyslogIdentifier=trendkit
