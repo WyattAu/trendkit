@@ -2083,7 +2083,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2100,7 +2100,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clock-kit",
  "fetch-kit",
@@ -2116,7 +2116,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit-profile"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "trendkit-core",
 ]
