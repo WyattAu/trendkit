@@ -21,6 +21,7 @@ use trendkit_core::github::GithubSource;
 use trendkit_core::hn::HnSource;
 use trendkit_core::source::{CollectCtx, TrendSource};
 use trendkit_core::store::Store;
+use trendkit_core::trending::TrendingSource;
 use trendkit_profile::{update_profile, Profile};
 
 /// Dev-trend crawler: snapshots, velocity, personal relevance.
@@ -91,6 +92,7 @@ enum SourceSel {
     Github,
     Hn,
     Cratesio,
+    Trending,
 }
 
 #[tokio::main]
@@ -167,10 +169,11 @@ async fn cmd_collect(
     };
 
     let selected: &[&str] = match sel {
-        SourceSel::All => &["github", "hn", "cratesio"],
+        SourceSel::All => &["github", "hn", "cratesio", "trending"],
         SourceSel::Github => &["github"],
         SourceSel::Hn => &["hn"],
         SourceSel::Cratesio => &["cratesio"],
+        SourceSel::Trending => &["trending"],
     };
 
     for name in selected {
@@ -182,6 +185,7 @@ async fn cmd_collect(
             }
             "hn" => HnSource::new().collect(&ctx).await?,
             "cratesio" => CratesSource::new().collect(&ctx).await?,
+            "trending" => TrendingSource::new().collect(&ctx).await?,
             other => anyhow::bail!("unknown source: {other}"),
         };
         println!(
