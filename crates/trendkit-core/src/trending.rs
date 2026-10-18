@@ -90,8 +90,11 @@ impl TrendSource for TrendingSource {
                 let observation = Observation {
                     ts: now,
                     score: row.stars,
-                    extra1: row.stars_today,
-                    extra2: row.forks,
+                    // Same slot semantics as the Search source (forks),
+                    // so fork-ratio integrity works across origins.
+                    // Stars-today rides extra2; watchers are dropped.
+                    extra1: row.forks,
+                    extra2: row.stars_today,
                 };
                 let subject = SubjectRecord {
                     kind: SourceKind::GithubRepo,

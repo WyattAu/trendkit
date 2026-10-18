@@ -73,6 +73,9 @@ enum Command {
         /// Prepend an AI briefing (needs ai_api_key; skips if absent).
         #[arg(long, default_value_t = false)]
         ai: bool,
+        /// Append integrity signals (fork flags, org bursts, outliers).
+        #[arg(long, default_value_t = false)]
+        integrity: bool,
     },
     /// Manage the personal relevance profile.
     Profile {
@@ -138,7 +141,13 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
             personal,
             telegram,
             ai,
-        } => cmd_report(settings, top, window, markdown, personal, telegram, ai).await,
+            integrity,
+        } => {
+            cmd_report(
+                settings, top, window, markdown, personal, telegram, ai, integrity,
+            )
+            .await
+        }
         Command::Profile { cmd } => cmd_profile(settings, cmd).await,
     }
 }
@@ -237,6 +246,7 @@ async fn cmd_report(
     personal: bool,
     telegram: bool,
     ai: bool,
+    integrity: bool,
 ) -> Result<()> {
     let store = open_store(&settings)?;
     let rows = store
@@ -284,13 +294,27 @@ async fn cmd_report(
     print!("{text}");
 
     let mut telegram_text: Option<String> = None;
+    if integrity {
+        match integrity_sections(&store, window) {
+            Ok(sections) if !sections.is_empty() => {
+                let block = sections.join("\n");
+                println!("\n{block}");
+                telegram_text = Some(format!("{text}\n\n{block}"));
+            }
+            Ok(_) => println!("\nintegrity: no flags in this window"),
+            Err(err) => eprintln!("warning: integrity analysis failed: {err}"),
+        }
+    }
+
     if ai {
         match ai_digest(&settings, &text).await {
             Ok(Some(briefing)) => {
                 println!("\n## AI briefing\n\n{briefing}");
                 // Briefing first on mobile; the tail table is what
-                // truncation eats.
-                telegram_text = Some(format!("AI briefing:\n{briefing}\n\n{text}"));
+                // truncation eats. Integrity sections survive either way
+                // because they precede the AI block in the digest.
+                let base = telegram_text.as_deref().unwrap_or(&text);
+                telegram_text = Some(format!("AI briefing:\n{briefing}\n\n{base}"));
             }
             Ok(None) => eprintln!("note: no ai_api_key configured — AI briefing skipped"),
             Err(err) => eprintln!("warning: AI briefing failed: {err}"),
@@ -301,6 +325,67 @@ async fn cmd_report(
         send_telegram_digest(&settings, telegram_text.as_deref().unwrap_or(&text)).await?;
     }
     Ok(())
+}
+
+/// Build the integrity sections (fork flags, org bursts, outliers) for
+/// the report tail; empty when nothing is flagged.
+fn integrity_sections(store: &Store, window: u32) -> trendkit_core::Result<Vec<String>> {
+    let mut sections = Vec::new();
+    let flags = signalkit_integrity::fork_flags(store, window, 200)?;
+    if !flags.is_empty() {
+        let mut lines = vec!["## Integrity: fork-ratio flags".to_owned()];
+        for f in &flags {
+            lines.push(format!(
+                "- {} — {}★/{} forks ({:.1}%) [{}]",
+                f.key,
+                f.stars,
+                f.forks,
+                f.ratio_pct,
+                match f.verdict {
+                    signalkit_integrity::ForkVerdict::Elevated => "elevated",
+                    signalkit_integrity::ForkVerdict::Extreme => "extreme",
+                    signalkit_integrity::ForkVerdict::Normal => "normal",
+                }
+            ));
+        }
+        sections.push(lines.join("\n"));
+    }
+
+    let bursts = signalkit_integrity::org_bursts(store, window, 3, 25.0)?;
+    if !bursts.is_empty() {
+        let mut lines = vec!["## Integrity: org bursts".to_owned()];
+        for b in bursts.iter().take(5) {
+            lines.push(format!(
+                "- @{} — {} repos, combined {:.0}/day: {}",
+                b.owner,
+                b.subjects,
+                b.combined_velocity,
+                b.keys
+                    .iter()
+                    .take(4)
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        sections.push(lines.join("\n"));
+    }
+
+    let outliers = signalkit_integrity::velocity_outliers(store, window, 500)?;
+    if !outliers.is_empty() {
+        let mut lines = vec!["## Integrity: velocity outliers".to_owned()];
+        for o in outliers.iter().take(5) {
+            lines.push(format!(
+                "- [{}] {} — {:.1}/day (robust z {:.1})",
+                o.kind.tag(),
+                o.key,
+                o.velocity_per_day,
+                o.robust_z
+            ));
+        }
+        sections.push(lines.join("\n"));
+    }
+    Ok(sections)
 }
 
 /// Build the AI briefing; `Ok(None)` when no key is configured.

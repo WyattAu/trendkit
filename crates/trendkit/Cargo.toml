@@ -23,6 +23,7 @@ clock-kit = "0.1.0"
 config-kit = "0.1.1"
 fetch-kit = "0.2.0"
 serde.workspace = true
+signalkit-integrity = { version = "0.1.0", path = "../../../signalkit/crates/signalkit-integrity" }
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
