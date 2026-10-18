@@ -1707,6 +1707,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
+name = "signalkit-core"
+version = "0.1.0"
+dependencies = [
+ "clock-kit",
+ "fetch-kit",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "simd_cesu8"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2102,13 +2115,12 @@ dependencies = [
 name = "trendkit-core"
 version = "0.2.0"
 dependencies = [
- "clock-kit",
  "fetch-kit",
  "retry-backoff",
- "rusqlite",
  "scraper",
  "serde",
  "serde_json",
+ "signalkit-core",
  "thiserror",
  "tokio",
  "tracing",
