@@ -3,14 +3,24 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
-## Unreleased (0.3.0-dev)
+## 0.3.0 — 2026-10-18
 
+- **Engine extracted**: model/store/score/clock/source now live in
+  [`signalkit-core`](https://crates.io/crates/signalkit-core); trendkit
+  is its first consumer.
+- **Integrity signals** (`report --integrity`): fork-ratio flags, org
+  bursts, robust velocity outliers — via
+  [`signalkit-integrity`](https://crates.io/crates/signalkit-integrity).
+  First live findings: a 153.9% fork-ratio repo and a 7-repo org burst
+  at 1,269 stars/day combined.
 - **HuggingFace source**: trending models via the public Hub API
   (`trendingScore` sort); score = downloads, likes in `extra1`; HF tags
   become topics so the personal profile scores model trends too.
 - **AI briefing** (`report --ai`): any OpenAI-compatible endpoint
   (default DeepSeek), key via `ai_api_key`/`TRENDKIT_AI_API_KEY`;
   absent key skips gracefully. Briefing leads the Telegram digest.
+- Trending source now records forks consistently with the Search source
+  (stars-today in `extra2`), making cross-origin fork ratios trustworthy.
 
 ## 0.2.0 — 2026-10-18
 
