@@ -3,6 +3,24 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
+## 0.3.4 — 2026-10-19
+
+- **Trending topics** (`report --topics N`): stars-delta aggregated per
+  topic across the window; first run put `mcp` on top (8 repos, +666).
+- **Integrity sections** (`report --integrity`): fork-ratio flags now
+  carry the composite **trust score and band**; new "trust suspects"
+  section (composite < 80, worst first). Band cap: an extreme fork
+  verdict holds the band at Watch — no single signal may be ignored.
+- **Kind filter** (`report --kinds gh,hn,cr,hf`): filters against the
+  full pool, not the truncated top-N.
+- **Fix**: descriptions with embedded newlines split markdown table
+  rows; sanitized (found by the fleet dress rehearsal).
+
+## 0.3.3 — 2026-10-19
+
+- `report --integrity` (fork flags, org bursts, velocity outliers) and
+  the HuggingFace + AI-briefing features' first release.
+
 ## 0.3.0 — 2026-10-18
 
 - **Engine extracted**: model/store/score/clock/source now live in

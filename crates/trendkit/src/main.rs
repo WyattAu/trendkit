@@ -395,7 +395,8 @@ fn integrity_sections(store: &Store, window: u32) -> trendkit_core::Result<Vec<S
         signalkit_integrity::trust_rows(store, window, 200)?
             .into_iter()
             .map(|r| {
-                let band = match signalkit_integrity::trust_band(r.summary.score) {
+                // The summary band already carries the extreme-verdict cap.
+                let band = match r.summary.band {
                     signalkit_integrity::TrustBand::Trusted => "trusted",
                     signalkit_integrity::TrustBand::Watch => "watch",
                     signalkit_integrity::TrustBand::Suspect => "SUSPECT",
