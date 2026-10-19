@@ -1,6 +1,7 @@
 # trendkit
 
 [![CI](https://github.com/WyattAu/trendkit/actions/workflows/ci.yml/badge.svg)](https://github.com/WyattAu/trendkit/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/trendkit.svg)](https://crates.io/crates/trendkit) [![crates.io](https://img.shields.io/crates/v/trendkit-core.svg)](https://crates.io/crates/trendkit-core) [![crates.io](https://img.shields.io/crates/v/trendkit-profile.svg)](https://crates.io/crates/trendkit-profile)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.95+-orange.svg)](https://www.rust-lang.org/)
 
