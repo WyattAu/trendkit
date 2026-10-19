@@ -1,7 +1,7 @@
 [package]
 name = "trendkit"
 description = "Dev-trend crawler CLI: snapshot collectors, velocity report, personal ranking"
-version.workspace = true
+version = "0.3.1"
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true

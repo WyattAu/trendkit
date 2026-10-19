@@ -76,6 +76,9 @@ enum Command {
         /// Append integrity signals (fork flags, org bursts, outliers).
         #[arg(long, default_value_t = false)]
         integrity: bool,
+        /// Append the top-N trending topics across the window.
+        #[arg(long, default_value_t = 0)]
+        topics: u32,
     },
     /// Manage the personal relevance profile.
     Profile {
@@ -142,9 +145,10 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
             telegram,
             ai,
             integrity,
+            topics,
         } => {
             cmd_report(
-                settings, top, window, markdown, personal, telegram, ai, integrity,
+                settings, top, window, markdown, personal, telegram, ai, integrity, topics,
             )
             .await
         }
@@ -247,6 +251,7 @@ async fn cmd_report(
     telegram: bool,
     ai: bool,
     integrity: bool,
+    topics: u32,
 ) -> Result<()> {
     let store = open_store(&settings)?;
     let rows = store
@@ -294,6 +299,20 @@ async fn cmd_report(
     print!("{text}");
 
     let mut telegram_text: Option<String> = None;
+    if topics > 0 {
+        match topics_section(&store, window, topics) {
+            Ok(lines) if !lines.is_empty() => {
+                let section = lines.join("\n");
+                println!("\n{section}");
+                telegram_text = Some(match telegram_text.take() {
+                    Some(t) => format!("{t}\n\n{section}"),
+                    None => format!("{text}\n\n{section}"),
+                });
+            }
+            Ok(_) => println!("\ntopics: no tagged subjects in this window"),
+            Err(err) => eprintln!("warning: topic aggregation failed: {err}"),
+        }
+    }
     if integrity {
         match integrity_sections(&store, window) {
             Ok(sections) if !sections.is_empty() => {
@@ -325,6 +344,35 @@ async fn cmd_report(
         send_telegram_digest(&settings, telegram_text.as_deref().unwrap_or(&text)).await?;
     }
     Ok(())
+}
+
+/// Aggregate the highest-delta topics across the window's subjects.
+/// `delta` per subject = latest minus earliest score inside the window.
+fn topics_section(store: &Store, window: u32, top_n: u32) -> trendkit_core::Result<Vec<String>> {
+    use std::collections::BTreeMap;
+    let rows = store.velocity_rows(window, 500)?;
+    let mut agg: BTreeMap<String, (usize, i64)> = BTreeMap::new();
+    for row in &rows {
+        let delta = row.score_now - row.score_prev;
+        for topic in &row.topics {
+            let entry = agg.entry(topic.clone()).or_default();
+            entry.0 += 1;
+            entry.1 += delta;
+        }
+    }
+    let mut items: Vec<(String, usize, i64)> =
+        agg.into_iter().map(|(t, (c, d))| (t, c, d)).collect();
+    items.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
+    if items.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut lines = vec![format!("## Trending topics (top {top_n})")];
+    for (topic, repos, delta) in items.iter().take(top_n as usize) {
+        lines.push(format!(
+            "- {topic} — {repos} repo(s), +{delta} stars across tracked subjects"
+        ));
+    }
+    Ok(lines)
 }
 
 /// Build the integrity sections (fork flags, org bursts, outliers) for
