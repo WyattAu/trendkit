@@ -67,6 +67,9 @@ enum Command {
         /// Rank by personal relevance (needs a stored profile).
         #[arg(long, default_value_t = false)]
         personal: bool,
+        /// Only show these kinds (comma-separated: gh, hn, cr, hf).
+        #[arg(long, value_delimiter = ',')]
+        kinds: Vec<String>,
         /// Also send the markdown report via Telegram.
         #[arg(long, default_value_t = false)]
         telegram: bool,
@@ -146,9 +149,10 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
             ai,
             integrity,
             topics,
+            kinds,
         } => {
             cmd_report(
-                settings, top, window, markdown, personal, telegram, ai, integrity, topics,
+                settings, top, window, markdown, personal, telegram, ai, integrity, topics, kinds,
             )
             .await
         }
@@ -252,11 +256,19 @@ async fn cmd_report(
     ai: bool,
     integrity: bool,
     topics: u32,
+    kinds: Vec<String>,
 ) -> Result<()> {
     let store = open_store(&settings)?;
-    let rows = store
-        .velocity_rows(window, top)
+    let mut rows = store
+        .velocity_rows(window, if kinds.is_empty() { top } else { 2_000 })
         .context("velocity query failed")?;
+    if !kinds.is_empty() {
+        // Filter the full pool, THEN truncate: excluding a dominant kind
+        // (crates.io infra) must not empty an already-limited top-N.
+        let wanted: Vec<String> = kinds.iter().map(|k| k.to_ascii_uppercase()).collect();
+        rows.retain(|r| wanted.contains(&r.kind.tag().to_string()));
+        rows.truncate(top as usize);
+    }
     let (subjects, observations) = store.counts().context("store counts failed")?;
     let last_run = store.last_run().context("last-run query failed")?;
 
