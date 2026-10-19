@@ -174,11 +174,10 @@ pub fn render_markdown(rows: &[ReportRow<'_>], header: &[String]) -> String {
             Some(url) => format!("[{}]({})", r.row.key.replace('|', "/"), url),
             None => r.row.key.clone(),
         };
-        let title = r
-            .row
-            .title
-            .as_deref()
-            .map_or(String::new(), |t| format!(" — {}", t.replace('|', "/")));
+        let title = r.row.title.as_deref().map_or(String::new(), |t| {
+            // Newlines inside descriptions split the table row.
+            format!(" — {}", t.replace('|', "/").replace(['\r', '\n'], " "))
+        });
         out.push_str(&format!(
             "| {} | {}{} | {} | {} | {:.1} |",
             r.row.kind.tag(),
@@ -258,11 +257,19 @@ mod tests {
 
     #[test]
     fn markdown_escapes_pipes_in_descriptions() {
-        let rows = vec![row(SourceKind::GithubRepo, "a/one", Some("Rust"), 7.0)];
+        let mut one = row(SourceKind::GithubRepo, "a/one", Some("Rust"), 7.0);
+        one.title = Some("desc | with pipe\nand newline".to_owned());
+        let rows = vec![one];
         let built = build_rows(&rows, None);
         let text = render_markdown(&built, &[]);
-        assert!(text.contains("desc / with pipe"));
+        assert!(
+            text.contains("desc / with pipe and newline"),
+            "TEXT WAS: {text}"
+        );
         assert!(!text.contains("desc | with"));
+        assert!(!text
+            .lines()
+            .any(|l| !l.starts_with('|') && l.contains('|') && l.contains("a/one")));
         assert!(text.contains("https://example.com/a/one"));
     }
 
