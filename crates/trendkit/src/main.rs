@@ -391,12 +391,28 @@ fn topics_section(store: &Store, window: u32, top_n: u32) -> trendkit_core::Resu
 /// the report tail; empty when nothing is flagged.
 fn integrity_sections(store: &Store, window: u32) -> trendkit_core::Result<Vec<String>> {
     let mut sections = Vec::new();
+    let trust: std::collections::BTreeMap<String, (f64, &'static str)> =
+        signalkit_integrity::trust_rows(store, window, 200)?
+            .into_iter()
+            .map(|r| {
+                let band = match signalkit_integrity::trust_band(r.summary.score) {
+                    signalkit_integrity::TrustBand::Trusted => "trusted",
+                    signalkit_integrity::TrustBand::Watch => "watch",
+                    signalkit_integrity::TrustBand::Suspect => "SUSPECT",
+                };
+                (r.key, (r.summary.score, band))
+            })
+            .collect();
+
     let flags = signalkit_integrity::fork_flags(store, window, 200)?;
     if !flags.is_empty() {
         let mut lines = vec!["## Integrity: fork-ratio flags".to_owned()];
         for f in &flags {
+            let trust_line = trust.get(&f.key).map_or(String::new(), |(score, band)| {
+                format!(" — trust {:.0} [{band}]", score)
+            });
             lines.push(format!(
-                "- {} — {}★/{} forks ({:.1}%) [{}]",
+                "- {} — {}★/{} forks ({:.1}%) [{}]{}",
                 f.key,
                 f.stars,
                 f.forks,
@@ -405,8 +421,24 @@ fn integrity_sections(store: &Store, window: u32) -> trendkit_core::Result<Vec<S
                     signalkit_integrity::ForkVerdict::Elevated => "elevated",
                     signalkit_integrity::ForkVerdict::Extreme => "extreme",
                     signalkit_integrity::ForkVerdict::Normal => "normal",
-                }
+                },
+                trust_line
             ));
+        }
+        sections.push(lines.join("\n"));
+    }
+
+    let mut suspects: Vec<(&String, &(f64, &'static str))> =
+        trust.iter().filter(|(_, (s, _))| *s < 80.0).collect();
+    suspects.sort_by(|a, b| {
+        a.1 .0
+            .partial_cmp(&b.1 .0)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    if !suspects.is_empty() {
+        let mut lines = vec!["## Integrity: trust suspects (composite < 80)".to_owned()];
+        for (key, (score, band)) in suspects.iter().take(5) {
+            lines.push(format!("- {key} — {:.0} [{band}]", score));
         }
         sections.push(lines.join("\n"));
     }

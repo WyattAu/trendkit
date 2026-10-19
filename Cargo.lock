@@ -1723,9 +1723,9 @@ dependencies = [
 
 [[package]]
 name = "signalkit-integrity"
-version = "0.1.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66cd53a188174486c80e146ade91c1b7bef053318dd39772447efe92d8f8a372"
+checksum = "9266afe0e960ea1d9b81a88e82d93b6046f9ac5158d71503e55d6fe0253ab487"
 dependencies = [
  "rusqlite",
  "signalkit-core",
@@ -2108,7 +2108,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "clap",
