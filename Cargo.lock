@@ -1709,6 +1709,8 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 [[package]]
 name = "signalkit-core"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53c6c15357a0da760b91516f39c0aa152f397cf5e392d087f35eb606f04da0a2"
 dependencies = [
  "clock-kit",
  "fetch-kit",
@@ -1721,7 +1723,9 @@ dependencies = [
 
 [[package]]
 name = "signalkit-integrity"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66cd53a188174486c80e146ade91c1b7bef053318dd39772447efe92d8f8a372"
 dependencies = [
  "rusqlite",
  "signalkit-core",
