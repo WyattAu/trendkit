@@ -3,6 +3,16 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
+## 0.3.5 / core 0.3.1 — 2026-10-20
+
+- **HF metadata tags filtered**: `region:`/`license:`/`arxiv:`/`doi:` tags
+  no longer pollute topic aggregation (they were the top "topics" — 82
+  repos of `region:us`).
+- **Trust score recalibrated** (signalkit-integrity 0.2.3): the velocity
+  outlier penalty is capped at 10 points — a genuinely viral repo
+  (z=58) scored trust 0 under the old linear penalty. Popularity is not
+  dishonesty.
+
 ## 0.3.4 — 2026-10-19
 
 - **Trending topics** (`report --topics N`): stars-delta aggregated per

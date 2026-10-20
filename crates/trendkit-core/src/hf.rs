@@ -117,7 +117,20 @@ pub(crate) struct HfModelJson {
 impl From<HfModelJson> for SubjectRecord {
     fn from(json: HfModelJson) -> Self {
         let name = json.model_id.unwrap_or(json.id);
-        let mut topics = json.tags.unwrap_or_default();
+        // Hub tags carry non-topical metadata (region:us, license:other,
+        // arxiv:1234.5678) that swamps topic aggregation — keep the
+        // pipeline tag and the real taxonomy tags only.
+        let mut topics: Vec<String> = json
+            .tags
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|t| {
+                !t.starts_with("region:")
+                    && !t.starts_with("license:")
+                    && !t.starts_with("arxiv:")
+                    && !t.starts_with("doi:")
+            })
+            .collect();
         if let Some(pipeline) = json.pipeline_tag {
             if !topics.contains(&pipeline) {
                 topics.push(pipeline);
@@ -160,7 +173,7 @@ mod tests {
             "likes": 4200,
             "trendingScore": 97.5,
             "pipeline_tag": "text-generation",
-            "tags": ["text-generation", "conversational"]
+            "tags": ["text-generation", "region:us", "license:other", "conversational"]
         },
         {
             "id": "bare-model",
@@ -182,6 +195,8 @@ mod tests {
         assert!(subjects[0].topics.contains(&"conversational".to_owned()));
         // Degenerate entry falls back to `id`.
         assert_eq!(subjects[1].key, "bare-model");
+        // Metadata tags (region:/license:/arxiv:) are filtered out.
+        assert!(!subjects[0].topics.iter().any(|t| t.contains(':')));
     }
 
     #[test]
