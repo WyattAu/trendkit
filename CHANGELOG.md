@@ -13,6 +13,21 @@ tool, not a library contract. breaking changes called out inline.
   (z=58) scored trust 0 under the old linear penalty. Popularity is not
   dishonesty.
 
+## 0.3.8 — 2026-10-21
+
+- `report --out <path>`: write the rendered report (incl. integrity,
+  topics, persistent, AI sections) to a file — the weekly public page.
+- (0.3.5-0.3.7 changelog entries live in the git tags.)
+
+## 0.3.5 / 0.3.6 / 0.3.7 — 2026-10-19/20
+
+- 0.3.5: HF metadata-tag filter, trust recalibration (outlier cap),
+  core 0.3.1.
+- 0.3.6: same-name clone-farm detection; two-repo high-velocity burst
+  rule (signalkit-integrity 0.2.5/0.2.6).
+- 0.3.7: `report --persistent N` persistence section (signalkit-core
+  0.1.1).
+
 ## 0.3.4 — 2026-10-19
 
 - **Trending topics** (`report --topics N`): stars-delta aggregated per

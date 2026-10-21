@@ -79,6 +79,10 @@ enum Command {
         /// Prepend an AI briefing (needs ai_api_key; skips if absent).
         #[arg(long, default_value_t = false)]
         ai: bool,
+        /// Also write the rendered report to this file (markdown mode
+        /// recommended) — for weekly public pages.
+        #[arg(long)]
+        out: Option<std::path::PathBuf>,
         /// Append integrity signals (fork flags, org bursts, outliers).
         #[arg(long, default_value_t = false)]
         integrity: bool,
@@ -154,6 +158,7 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
             topics,
             kinds,
             persistent,
+            out,
         } => {
             cmd_report(
                 settings,
@@ -168,6 +173,7 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
                     topics,
                     kinds,
                     persistent,
+                    out,
                 },
             )
             .await
@@ -285,6 +291,8 @@ struct ReportOpts {
     kinds: Vec<String>,
     /// Persistence threshold in distinct days (0 = off).
     persistent: u32,
+    /// Write the rendered report to this file.
+    out: Option<std::path::PathBuf>,
 }
 
 async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> {
@@ -423,6 +431,13 @@ async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> 
             Ok(None) => eprintln!("note: no ai_api_key configured — AI briefing skipped"),
             Err(err) => eprintln!("warning: AI briefing failed: {err}"),
         }
+    }
+
+    if let Some(path) = &opts.out {
+        let final_text = telegram_text.as_deref().unwrap_or(&text).to_owned();
+        std::fs::write(path, final_text)
+            .with_context(|| format!("write report to {}", path.display()))?;
+        println!("wrote report to {}", path.display());
     }
 
     if opts.telegram {
