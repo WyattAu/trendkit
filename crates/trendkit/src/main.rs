@@ -444,6 +444,22 @@ fn integrity_sections(store: &Store, window: u32) -> trendkit_core::Result<Vec<S
         sections.push(lines.join("\n"));
     }
 
+    let clones = signalkit_integrity::name_clones(store, window, 3, 40.0)?;
+    if !clones.is_empty() {
+        let mut lines = vec!["## Integrity: same-name clone farms".to_owned()];
+        for c in clones.iter().take(5) {
+            lines.push(format!(
+                "- `{}` — {} orgs, {}★/{} forks ({:.1}%)",
+                c.name,
+                c.orgs.len(),
+                c.total_stars,
+                c.total_forks,
+                c.avg_ratio_pct
+            ));
+        }
+        sections.push(lines.join("\n"));
+    }
+
     let bursts = signalkit_integrity::org_bursts(store, window, 3, 25.0)?;
     if !bursts.is_empty() {
         let mut lines = vec!["## Integrity: org bursts".to_owned()];
