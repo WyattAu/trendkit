@@ -70,6 +70,9 @@ enum Command {
         /// Only show these kinds (comma-separated: gh, hn, cr, hf).
         #[arg(long, value_delimiter = ',')]
         kinds: Vec<String>,
+        /// Only show subjects trending on >= N distinct days (0 = off).
+        #[arg(long, default_value_t = 0)]
+        persistent: u32,
         /// Also send the markdown report via Telegram.
         #[arg(long, default_value_t = false)]
         telegram: bool,
@@ -150,9 +153,22 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
             integrity,
             topics,
             kinds,
+            persistent,
         } => {
             cmd_report(
-                settings, top, window, markdown, personal, telegram, ai, integrity, topics, kinds,
+                settings,
+                ReportOpts {
+                    top,
+                    window,
+                    markdown,
+                    personal,
+                    telegram,
+                    ai,
+                    integrity,
+                    topics,
+                    kinds,
+                    persistent,
+                },
             )
             .await
         }
@@ -246,39 +262,60 @@ async fn cmd_collect(
     Ok(())
 }
 
-async fn cmd_report(
-    settings: config::Settings,
+/// Flags for one `report` invocation.
+#[derive(Debug, Clone, Default)]
+struct ReportOpts {
+    /// Rows to show.
     top: u32,
+    /// Velocity window in days.
     window: u32,
+    /// Emit markdown instead of a table.
     markdown: bool,
+    /// Rank by personal relevance.
     personal: bool,
+    /// Send via Telegram.
     telegram: bool,
+    /// Prepend an AI briefing.
     ai: bool,
+    /// Append integrity sections.
     integrity: bool,
+    /// Trending topics count (0 = off).
     topics: u32,
+    /// Kind filter (empty = all).
     kinds: Vec<String>,
-) -> Result<()> {
+    /// Persistence threshold in distinct days (0 = off).
+    persistent: u32,
+}
+
+async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> {
     let store = open_store(&settings)?;
     let mut rows = store
-        .velocity_rows(window, if kinds.is_empty() { top } else { 2_000 })
+        .velocity_rows(
+            opts.window,
+            if opts.kinds.is_empty() {
+                opts.top
+            } else {
+                2_000
+            },
+        )
         .context("velocity query failed")?;
-    if !kinds.is_empty() {
+    if !opts.kinds.is_empty() {
         // Filter the full pool, THEN truncate: excluding a dominant kind
         // (crates.io infra) must not empty an already-limited top-N.
-        let wanted: Vec<String> = kinds.iter().map(|k| k.to_ascii_uppercase()).collect();
+        let wanted: Vec<String> = opts.kinds.iter().map(|k| k.to_ascii_uppercase()).collect();
         rows.retain(|r| wanted.contains(&r.kind.tag().to_string()));
-        rows.truncate(top as usize);
+        rows.truncate(opts.top as usize);
     }
     let (subjects, observations) = store.counts().context("store counts failed")?;
     let last_run = store.last_run().context("last-run query failed")?;
 
-    let profile_rows = if personal {
+    let profile_rows = if opts.personal {
         Some(store.load_profile_rows().context("profile query failed")?)
     } else {
         None
     };
     let profile = profile_rows.as_ref().map(|rows| Profile::from_repos(rows));
-    if personal && profile.as_ref().is_some_and(Profile::is_empty) {
+    if opts.personal && profile.as_ref().is_some_and(Profile::is_empty) {
         eprintln!(
             "warning: profile is empty — run `trendkit profile update` first; falling back to velocity order"
         );
@@ -294,7 +331,7 @@ async fn cmd_report(
         format!("profile: {} repos, topics: {}", p.repo_count, top)
     });
     let header = report::header_lines(
-        window,
+        opts.window,
         &settings.db_path.display().to_string(),
         subjects,
         observations,
@@ -303,7 +340,7 @@ async fn cmd_report(
     );
 
     let built = report::build_rows(&rows, profile.as_ref());
-    let text = if markdown {
+    let text = if opts.markdown {
         report::render_markdown(&built, &header)
     } else {
         report::render_plain(&built, &header)
@@ -311,8 +348,58 @@ async fn cmd_report(
     print!("{text}");
 
     let mut telegram_text: Option<String> = None;
-    if topics > 0 {
-        match topics_section(&store, window, topics) {
+    if opts.persistent > 0 {
+        match store.persistent_subjects(opts.window, i64::from(opts.persistent), 2_000) {
+            Ok(rows) if !rows.is_empty() => {
+                let mut filtered: Vec<&_> = rows.iter().collect();
+                if !opts.kinds.is_empty() {
+                    let wanted: Vec<String> =
+                        opts.kinds.iter().map(|k| k.to_ascii_uppercase()).collect();
+                    filtered.retain(|r| wanted.contains(&r.kind.tag().to_string()));
+                }
+                let mut lines = vec![format!(
+                    "## Persistent (>= {} distinct days)",
+                    opts.persistent
+                )];
+                for r in &filtered {
+                    lines.push(format!(
+                        "- [{}] {} — {} day(s), {} now, {:.0}/day",
+                        r.kind.tag(),
+                        r.key,
+                        r.days,
+                        r.score_now,
+                        r.velocity_per_day
+                    ));
+                }
+                let section = lines.join("\n");
+                println!("\n{section}");
+                telegram_text = Some(match telegram_text.take() {
+                    Some(t) => format!("{t}\n\n{section}"),
+                    None => format!("{text}\n\n{section}"),
+                });
+            }
+            Ok(_) => println!("\npersistent: nothing has held N days yet"),
+            Err(err) => eprintln!("warning: persistence analysis failed: {err}"),
+        }
+    }
+
+    if opts.integrity {
+        match integrity_sections(&store, opts.window) {
+            Ok(sections) if !sections.is_empty() => {
+                let block = sections.join("\n");
+                println!("\n{block}");
+                telegram_text = Some(match telegram_text.take() {
+                    Some(t) => format!("{t}\n\n{block}"),
+                    None => format!("{text}\n\n{block}"),
+                });
+            }
+            Ok(_) => println!("\nintegrity: no flags in this window"),
+            Err(err) => eprintln!("warning: integrity analysis failed: {err}"),
+        }
+    }
+
+    if opts.topics > 0 {
+        match topics_section(&store, opts.window, opts.topics) {
             Ok(lines) if !lines.is_empty() => {
                 let section = lines.join("\n");
                 println!("\n{section}");
@@ -325,25 +412,11 @@ async fn cmd_report(
             Err(err) => eprintln!("warning: topic aggregation failed: {err}"),
         }
     }
-    if integrity {
-        match integrity_sections(&store, window) {
-            Ok(sections) if !sections.is_empty() => {
-                let block = sections.join("\n");
-                println!("\n{block}");
-                telegram_text = Some(format!("{text}\n\n{block}"));
-            }
-            Ok(_) => println!("\nintegrity: no flags in this window"),
-            Err(err) => eprintln!("warning: integrity analysis failed: {err}"),
-        }
-    }
 
-    if ai {
+    if opts.ai {
         match ai_digest(&settings, &text).await {
             Ok(Some(briefing)) => {
                 println!("\n## AI briefing\n\n{briefing}");
-                // Briefing first on mobile; the tail table is what
-                // truncation eats. Integrity sections survive either way
-                // because they precede the AI block in the digest.
                 let base = telegram_text.as_deref().unwrap_or(&text);
                 telegram_text = Some(format!("AI briefing:\n{briefing}\n\n{base}"));
             }
@@ -352,7 +425,7 @@ async fn cmd_report(
         }
     }
 
-    if telegram {
+    if opts.telegram {
         send_telegram_digest(&settings, telegram_text.as_deref().unwrap_or(&text)).await?;
     }
     Ok(())
