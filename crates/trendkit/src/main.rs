@@ -460,7 +460,7 @@ fn integrity_sections(store: &Store, window: u32) -> trendkit_core::Result<Vec<S
         sections.push(lines.join("\n"));
     }
 
-    let bursts = signalkit_integrity::org_bursts(store, window, 3, 25.0)?;
+    let bursts = signalkit_integrity::org_bursts(store, window, 3, 25.0, 5_000.0)?;
     if !bursts.is_empty() {
         let mut lines = vec!["## Integrity: org bursts".to_owned()];
         for b in bursts.iter().take(5) {
