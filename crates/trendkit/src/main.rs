@@ -461,9 +461,16 @@ async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> 
 
     if let Some(path) = &opts.out {
         let final_text = telegram_text.as_deref().unwrap_or(&text).to_owned();
-        std::fs::write(path, final_text)
-            .with_context(|| format!("write report to {}", path.display()))?;
-        println!("wrote report to {}", path.display());
+        // A directory target gets an auto-dated filename so weekly cron
+        // lines never change.
+        let target: std::path::PathBuf = if path.is_dir() {
+            path.join(format!("trendkit-{}.md", iso_today()))
+        } else {
+            path.clone()
+        };
+        std::fs::write(&target, final_text)
+            .with_context(|| format!("write report to {}", target.display()))?;
+        println!("wrote report to {}", target.display());
     }
 
     if opts.telegram {
@@ -674,6 +681,27 @@ async fn ai_digest(settings: &config::Settings, report_text: &str) -> Result<Opt
     Ok(Some(
         trendkit_core::ai::summarize(&config, report_text).await?,
     ))
+}
+
+/// Today's UTC date as `YYYY-MM-DD` (for auto-dated report filenames).
+fn iso_today() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    let days = secs / 86_400;
+    // Hinnant's civil_from_days.
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!("{y:04}-{m:02}-{d:02}")
 }
 
 fn telegram_token(settings: &config::Settings) -> Result<String> {
