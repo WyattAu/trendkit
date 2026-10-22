@@ -2,7 +2,8 @@
 //!
 //! Subcommands:
 //! - `collect` — snapshot observations into the SQLite store
-//! - `report`  — velocity ranking (optionally personal-scored)
+//! - `report`  — velocity ranking with optional integrity, shape,
+//!   topics, persistence, AI and Telegram sections
 //! - `profile` — manage the personal relevance profile
 
 mod config;
@@ -73,22 +74,27 @@ enum Command {
         /// Only show subjects trending on >= N distinct days (0 = off).
         #[arg(long, default_value_t = 0)]
         persistent: u32,
-        /// Also send the markdown report via Telegram.
-        #[arg(long, default_value_t = false)]
-        telegram: bool,
-        /// Prepend an AI briefing (needs ai_api_key; skips if absent).
-        #[arg(long, default_value_t = false)]
-        ai: bool,
-        /// Also write the rendered report to this file (markdown mode
-        /// recommended) — for weekly public pages.
-        #[arg(long)]
-        out: Option<std::path::PathBuf>,
-        /// Append integrity signals (fork flags, org bursts, outliers).
+        /// Append shape classification (accelerating/steady/fading) for
+        /// subjects with >= N distinct days.
+        #[arg(long, default_value_t = 0)]
+        shapes: u32,
+        /// Append integrity signals (fork flags, org bursts, clone
+        /// farms, outliers).
         #[arg(long, default_value_t = false)]
         integrity: bool,
         /// Append the top-N trending topics across the window.
         #[arg(long, default_value_t = 0)]
         topics: u32,
+        /// Prepend an AI briefing (needs ai_api_key; skips if absent).
+        #[arg(long, default_value_t = false)]
+        ai: bool,
+        /// Also send the markdown report via Telegram.
+        #[arg(long, default_value_t = false)]
+        telegram: bool,
+        /// Also write the rendered report to this file (markdown mode
+        /// recommended) — for weekly public pages.
+        #[arg(long)]
+        out: Option<std::path::PathBuf>,
     },
     /// Manage the personal relevance profile.
     Profile {
@@ -117,6 +123,35 @@ enum SourceSel {
     Cratesio,
     Trending,
     Huggingface,
+}
+
+/// Flags for one `report` invocation.
+#[derive(Debug, Clone, Default)]
+struct ReportOpts {
+    /// Rows to show.
+    top: u32,
+    /// Velocity window in days.
+    window: u32,
+    /// Emit markdown instead of a table.
+    markdown: bool,
+    /// Rank by personal relevance.
+    personal: bool,
+    /// Send via Telegram.
+    telegram: bool,
+    /// Prepend an AI briefing.
+    ai: bool,
+    /// Append integrity sections.
+    integrity: bool,
+    /// Trending topics count (0 = off).
+    topics: u32,
+    /// Kind filter (empty = all).
+    kinds: Vec<String>,
+    /// Persistence threshold in distinct days (0 = off).
+    persistent: u32,
+    /// Shape-analysis threshold in distinct days (0 = off).
+    shapes: u32,
+    /// Write the rendered report to this file.
+    out: Option<std::path::PathBuf>,
 }
 
 #[tokio::main]
@@ -152,12 +187,13 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
             window,
             markdown,
             personal,
-            telegram,
-            ai,
-            integrity,
-            topics,
             kinds,
             persistent,
+            shapes,
+            integrity,
+            topics,
+            ai,
+            telegram,
             out,
         } => {
             cmd_report(
@@ -173,6 +209,7 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
                     topics,
                     kinds,
                     persistent,
+                    shapes,
                     out,
                 },
             )
@@ -209,6 +246,7 @@ async fn cmd_collect(
     window_days: Option<u32>,
     no_profile: bool,
 ) -> Result<()> {
+    warn_if_unauthenticated(&settings);
     let store = Arc::new(open_store(&settings)?);
     let ctx = CollectCtx {
         clock: Arc::new(SystemClock),
@@ -266,33 +304,6 @@ async fn cmd_collect(
         );
     }
     Ok(())
-}
-
-/// Flags for one `report` invocation.
-#[derive(Debug, Clone, Default)]
-struct ReportOpts {
-    /// Rows to show.
-    top: u32,
-    /// Velocity window in days.
-    window: u32,
-    /// Emit markdown instead of a table.
-    markdown: bool,
-    /// Rank by personal relevance.
-    personal: bool,
-    /// Send via Telegram.
-    telegram: bool,
-    /// Prepend an AI briefing.
-    ai: bool,
-    /// Append integrity sections.
-    integrity: bool,
-    /// Trending topics count (0 = off).
-    topics: u32,
-    /// Kind filter (empty = all).
-    kinds: Vec<String>,
-    /// Persistence threshold in distinct days (0 = off).
-    persistent: u32,
-    /// Write the rendered report to this file.
-    out: Option<std::path::PathBuf>,
 }
 
 async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> {
@@ -369,7 +380,7 @@ async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> 
                     "## Persistent (>= {} distinct days)",
                     opts.persistent
                 )];
-                for r in &filtered {
+                for r in filtered.iter().take(opts.top as usize) {
                     lines.push(format!(
                         "- [{}] {} — {} day(s), {} now, {:.0}/day",
                         r.kind.tag(),
@@ -403,6 +414,21 @@ async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> 
             }
             Ok(_) => println!("\nintegrity: no flags in this window"),
             Err(err) => eprintln!("warning: integrity analysis failed: {err}"),
+        }
+    }
+
+    if opts.shapes > 0 {
+        match shapes_section(&store, opts.window, opts.shapes) {
+            Ok(lines) if !lines.is_empty() => {
+                let section = lines.join("\n");
+                println!("\n{section}");
+                telegram_text = Some(match telegram_text.take() {
+                    Some(t) => format!("{t}\n\n{section}"),
+                    None => format!("{text}\n\n{section}"),
+                });
+            }
+            Ok(_) => println!("\nshapes: no multi-day subjects yet"),
+            Err(err) => eprintln!("warning: shape analysis failed: {err}"),
         }
     }
 
@@ -446,44 +472,80 @@ async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> 
     Ok(())
 }
 
-/// Aggregate the highest-delta topics across the window's subjects.
-/// `delta` per subject = latest minus earliest score inside the window.
-fn topics_section(store: &Store, window: u32, top_n: u32) -> trendkit_core::Result<Vec<String>> {
+/// Classify multi-day subjects into accelerating/steady/fading lists.
+fn shapes_section(store: &Store, window: u32, min_days: u32) -> trendkit_core::Result<Vec<String>> {
+    use signalkit_integrity::classify_shape;
     use std::collections::BTreeMap;
-    let rows = store.velocity_rows(window, 500)?;
-    let mut agg: BTreeMap<String, (usize, i64)> = BTreeMap::new();
-    for row in &rows {
-        let delta = row.score_now - row.score_prev;
-        for topic in &row.topics {
-            let entry = agg.entry(topic.clone()).or_default();
-            entry.0 += 1;
-            entry.1 += delta;
+
+    let series = store.daily_scores(window)?;
+    let mut per_subject: BTreeMap<(trendkit_core::SourceKind, String), Vec<(String, i64)>> =
+        BTreeMap::new();
+    for point in series {
+        per_subject
+            .entry((point.kind, point.key))
+            .or_default()
+            .push((point.day, point.score));
+    }
+
+    let mut accelerating: Vec<(String, String, i64, i64)> = Vec::new();
+    let mut fading: Vec<(String, String, i64, i64)> = Vec::new();
+    for ((kind, key), mut points) in per_subject {
+        if points.len() < 2 {
+            continue;
+        }
+        points.sort();
+        let velocities: Vec<f64> = points
+            .windows(2)
+            .map(|pair| (pair[1].1 - pair[0].1) as f64)
+            .collect();
+        let latest_delta = points
+            .windows(2)
+            .last()
+            .map(|pair| pair[1].1 - pair[0].1)
+            .unwrap_or(0);
+        match classify_shape(&velocities) {
+            signalkit_integrity::TrendShape::Accelerating => accelerating.push((
+                format!("{kind:?}"),
+                key,
+                latest_delta,
+                points.last().map(|p| p.1).unwrap_or(0),
+            )),
+            signalkit_integrity::TrendShape::Fading => fading.push((
+                format!("{kind:?}"),
+                key,
+                latest_delta,
+                points.last().map(|p| p.1).unwrap_or(0),
+            )),
+            _ => {}
         }
     }
-    let mut items: Vec<(String, usize, i64)> =
-        agg.into_iter().map(|(t, (c, d))| (t, c, d)).collect();
-    items.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
-    if items.is_empty() {
+    if accelerating.is_empty() && fading.is_empty() {
         return Ok(Vec::new());
     }
-    let mut lines = vec![format!("## Trending topics (top {top_n})")];
-    for (topic, repos, delta) in items.iter().take(top_n as usize) {
+    accelerating.sort_by(|a, b| b.3.cmp(&a.3).then_with(|| b.2.cmp(&a.2)));
+    fading.sort_by(|a, b| b.3.cmp(&a.3).then_with(|| b.2.cmp(&a.2)));
+
+    let mut lines = vec!["## Shapes (multi-day subjects)".to_owned()];
+    for (kind_tag, key, latest_delta, score) in accelerating.iter().take(min_days as usize) {
         lines.push(format!(
-            "- {topic} — {repos} repo(s), +{delta} stars across tracked subjects"
+            "- ACCELERATING [{kind_tag}] {key} — {score} now, latest delta +{latest_delta}"
+        ));
+    }
+    for (kind_tag, key, latest_delta, score) in fading.iter().take(min_days as usize) {
+        lines.push(format!(
+            "- FADING [{kind_tag}] {key} — {score} now, latest delta {latest_delta:+}"
         ));
     }
     Ok(lines)
 }
 
-/// Build the integrity sections (fork flags, org bursts, outliers) for
-/// the report tail; empty when nothing is flagged.
 fn integrity_sections(store: &Store, window: u32) -> trendkit_core::Result<Vec<String>> {
     let mut sections = Vec::new();
+
     let trust: std::collections::BTreeMap<String, (f64, &'static str)> =
         signalkit_integrity::trust_rows(store, window, 200)?
             .into_iter()
             .map(|r| {
-                // The summary band already carries the extreme-verdict cap.
                 let band = match r.summary.band {
                     signalkit_integrity::TrustBand::Trusted => "trusted",
                     signalkit_integrity::TrustBand::Watch => "watch",
@@ -513,21 +575,6 @@ fn integrity_sections(store: &Store, window: u32) -> trendkit_core::Result<Vec<S
                 },
                 trust_line
             ));
-        }
-        sections.push(lines.join("\n"));
-    }
-
-    let mut suspects: Vec<(&String, &(f64, &'static str))> =
-        trust.iter().filter(|(_, (s, _))| *s < 80.0).collect();
-    suspects.sort_by(|a, b| {
-        a.1 .0
-            .partial_cmp(&b.1 .0)
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
-    if !suspects.is_empty() {
-        let mut lines = vec!["## Integrity: trust suspects (composite < 80)".to_owned()];
-        for (key, (score, band)) in suspects.iter().take(5) {
-            lines.push(format!("- {key} — {:.0} [{band}]", score));
         }
         sections.push(lines.join("\n"));
     }
@@ -585,7 +632,36 @@ fn integrity_sections(store: &Store, window: u32) -> trendkit_core::Result<Vec<S
     Ok(sections)
 }
 
-/// Build the AI briefing; `Ok(None)` when no key is configured.
+/// Aggregate the highest-delta topics across the window's subjects.
+fn topics_section(store: &Store, window: u32, top_n: u32) -> trendkit_core::Result<Vec<String>> {
+    use std::collections::BTreeMap;
+
+    let rows = store.velocity_rows(window, 500)?;
+    let mut agg: BTreeMap<String, (usize, i64)> = BTreeMap::new();
+    for row in &rows {
+        let delta = row.score_now - row.score_prev;
+        for topic in &row.topics {
+            let entry = agg.entry(topic.clone()).or_default();
+            entry.0 += 1;
+            entry.1 += delta;
+        }
+    }
+    let mut items: Vec<(String, usize, i64)> =
+        agg.into_iter().map(|(t, (c, d))| (t, c, d)).collect();
+    items.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
+    if items.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut lines = vec![format!("## Trending topics (top {top_n})")];
+    for (topic, repos, delta) in items.iter().take(top_n as usize) {
+        lines.push(format!(
+            "- {topic} — {repos} repo(s), +{delta} stars across tracked subjects"
+        ));
+    }
+    Ok(lines)
+}
+
+/// Fetch the AI briefing; `Ok(None)` when no key is configured.
 async fn ai_digest(settings: &config::Settings, report_text: &str) -> Result<Option<String>> {
     let Some(key) = settings.ai_api_key.as_ref() else {
         return Ok(None);
@@ -595,13 +671,11 @@ async fn ai_digest(settings: &config::Settings, report_text: &str) -> Result<Opt
         api_key: key.expose().to_owned(),
         model: settings.ai_model.clone(),
     };
-    trendkit_core::ai::summarize(&config, report_text)
-        .await
-        .map(Some)
-        .map_err(Into::into)
+    Ok(Some(
+        trendkit_core::ai::summarize(&config, report_text).await?,
+    ))
 }
 
-/// Resolve the bot token: env override, else the fleet token file.
 fn telegram_token(settings: &config::Settings) -> Result<String> {
     if let Ok(token) = std::env::var("TRENDKIT_TELEGRAM_TOKEN") {
         if !token.trim().is_empty() {
@@ -643,8 +717,6 @@ async fn send_telegram_digest(settings: &config::Settings, report_text: &str) ->
         report_text,
         trendkit_core::telegram::TELEGRAM_MAX_CHARS,
     );
-    // Markdown rendering is the transport format; the plain report's
-    // table characters are harmless to the legacy parser.
     trendkit_core::telegram::send_markdown(&token, &chat_id, &message)
         .await
         .context("telegram send failed")?;
