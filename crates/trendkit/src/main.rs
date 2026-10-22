@@ -535,12 +535,14 @@ fn shapes_section(store: &Store, window: u32, min_days: u32) -> trendkit_core::R
     let mut lines = vec!["## Shapes (multi-day subjects)".to_owned()];
     for (kind_tag, key, latest_delta, score) in accelerating.iter().take(min_days as usize) {
         lines.push(format!(
-            "- ACCELERATING [{kind_tag}] {key} — {score} now, latest delta +{latest_delta}"
+            "- ACCELERATING [{kind_tag}] {key} — {score} now, latest day +{latest_delta}"
         ));
     }
+    // "Fading" here means the daily delta is shrinking — the subject may
+    // still be growing strongly in absolute terms, so say "cooling".
     for (kind_tag, key, latest_delta, score) in fading.iter().take(min_days as usize) {
         lines.push(format!(
-            "- FADING [{kind_tag}] {key} — {score} now, latest delta {latest_delta:+}"
+            "- COOLING [{kind_tag}] {key} — {score} now, latest day +{latest_delta}"
         ));
     }
     Ok(lines)
