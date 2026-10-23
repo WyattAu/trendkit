@@ -2108,7 +2108,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit"
-version = "0.3.10"
+version = "0.3.11"
 dependencies = [
  "anyhow",
  "clap",

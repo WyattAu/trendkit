@@ -19,6 +19,17 @@ tool, not a library contract. breaking changes called out inline.
   topics, persistent, AI sections) to a file — the weekly public page.
 - (0.3.5-0.3.7 changelog entries live in the git tags.)
 
+## 0.3.11 — 2026-10-22
+
+- `report --shapes N`: per-subject shape classification
+  (accelerating/steady/fading) from per-day velocity pairs
+  (signalkit-integrity 0.2.7 `classify_shape`, signalkit-core 0.1.2
+  `daily_scores`).
+- COOLING label: shrinking-but-positive daily deltas read as cooling,
+  not fading.
+- `signalkit-integrity 0.2.6`: org bursts catch two-repo
+  high-velocity orgs; `name_clones` for cross-org clone farms.
+
 ## 0.3.5 / 0.3.6 / 0.3.7 — 2026-10-19/20
 
 - 0.3.5: HF metadata-tag filter, trust recalibration (outlier cap),
