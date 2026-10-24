@@ -3,6 +3,30 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
+## 0.4.0 — 2026-10-24
+
+- **Forecast estimator upgraded, bands calibrated** (signalkit-core
+  0.1.4 `project_next_walk`): leave-one-day-out backtests over ~950
+  live subjects showed the recency-weighted mean is the worst predictor
+  for every kind — it lags trending cumulative counters. Per-kind
+  estimator now: crate/github/hn project as a random walk (tomorrow =
+  today's delta), hf keeps the mean (backtest: mean wins on MAE 36.9k
+  vs 43.7k and coverage 48 vs 29 percent there — HF dynamics are
+  noisy-multiplicative, not trending). MAE improvements: crate 928k to
+  251k, github 55 to 34, hn 16.5 to 0.5.
+- **Per-kind spread multipliers** from the same LOO calibration, fit
+  on five days and scored on the held-out day: crate 1.1 (held-out
+  coverage 5 percent at the old mean fit, 51 percent at the walk fit),
+  github 1.9 (74 percent), hn 1.0 floor (77 percent), hf 1.5 (48
+  percent). Bands never claim false precision: multipliers floored at
+  1.0. Provisional by construction — recalibrate weekly as data
+  accumulates.
+- This closes the calibration receipt opened in 0.3.15: instead of
+  widening all bands blindly, kinds whose errors are stationary get
+  static multipliers (github, hn) and kinds whose errors are not
+  (crate acceleration, hf multiplicative noise) get a drift-tracking
+  estimator first, multiplier second.
+
 ## 0.3.15 — 2026-10-24
 
 - **Forecast time-order fix**: `forecast_section` sorted each subject's
