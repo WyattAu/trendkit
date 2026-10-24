@@ -23,6 +23,7 @@ clock-kit = "0.1.0"
 config-kit = "0.1.1"
 fetch-kit = "0.2.0"
 serde.workspace = true
+signalkit-core = "0.1.3"
 signalkit-integrity = "0.2.3"
 tokio.workspace = true
 tracing.workspace = true

@@ -78,6 +78,9 @@ enum Command {
         /// subjects with >= N distinct days.
         #[arg(long, default_value_t = 0)]
         shapes: u32,
+        /// Project next-day deltas for subjects with >= N daily points.
+        #[arg(long, default_value_t = 0)]
+        forecast: u32,
         /// Append integrity signals (fork flags, org bursts, clone
         /// farms, outliers).
         #[arg(long, default_value_t = false)]
@@ -95,6 +98,15 @@ enum Command {
         /// recommended) — for weekly public pages.
         #[arg(long)]
         out: Option<std::path::PathBuf>,
+    },
+    /// Project next-day deltas for subjects with >= N daily points.
+    Forecast {
+        /// Minimum daily data points to project (default 3).
+        #[arg(long, default_value_t = 3)]
+        min_points: u32,
+        /// SQLite store path.
+        #[arg(long, default_value = "trendkit.db")]
+        db: PathBuf,
     },
     /// Manage the personal relevance profile.
     Profile {
@@ -150,6 +162,9 @@ struct ReportOpts {
     persistent: u32,
     /// Shape-analysis threshold in distinct days (0 = off).
     shapes: u32,
+    /// Forecast threshold in history points (0 = off): project the
+    /// next-day delta for subjects with >= N daily points.
+    forecast: u32,
     /// Write the rendered report to this file.
     out: Option<std::path::PathBuf>,
 }
@@ -190,6 +205,7 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
             kinds,
             persistent,
             shapes,
+            forecast,
             integrity,
             topics,
             ai,
@@ -203,18 +219,20 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
                     window,
                     markdown,
                     personal,
-                    telegram,
-                    ai,
-                    integrity,
-                    topics,
                     kinds,
                     persistent,
                     shapes,
+                    forecast,
+                    integrity,
+                    topics,
+                    ai,
+                    telegram,
                     out,
                 },
             )
             .await
         }
+        Command::Forecast { min_points, db } => cmd_forecast(settings, min_points, db),
         Command::Profile { cmd } => cmd_profile(settings, cmd).await,
     }
 }
@@ -402,6 +420,20 @@ async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> 
         }
     }
 
+    if opts.forecast > 0 {
+        match forecast_section(&store, opts.forecast) {
+            Ok(lines) if !lines.is_empty() => {
+                let section = lines.join("\n");
+                println!("\n{section}");
+                telegram_text = Some(match telegram_text.take() {
+                    Some(t) => format!("{t}\n\n{section}"),
+                    None => format!("{text}\n\n{section}"),
+                });
+            }
+            Ok(_) => println!("\nforecast: no subjects with enough history"),
+            Err(err) => eprintln!("warning: forecast failed: {err}"),
+        }
+    }
     if opts.integrity {
         match integrity_sections(&store, opts.window) {
             Ok(sections) if !sections.is_empty() => {
@@ -480,6 +512,56 @@ async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> 
 }
 
 /// Classify multi-day subjects into accelerating/steady/fading lists.
+/// Project tomorrow's delta per subject from its daily score series.
+fn forecast_section(store: &Store, min_points: u32) -> trendkit_core::Result<Vec<String>> {
+    use signalkit_core::score::project_next;
+    use std::collections::BTreeMap;
+
+    let series = store.daily_scores(30)?;
+    let mut per_subject: BTreeMap<(trendkit_core::SourceKind, String), Vec<i64>> = BTreeMap::new();
+    for point in series {
+        per_subject
+            .entry((point.kind, point.key))
+            .or_default()
+            .push(point.score);
+    }
+
+    let mut rows: Vec<(f64, String, String, f64, f64)> = Vec::new();
+    for ((kind, key), mut scores) in per_subject {
+        if (scores.len() as u32) < min_points {
+            continue;
+        }
+        scores.sort();
+        let deltas: Vec<f64> = scores
+            .windows(2)
+            .map(|pair| (pair[1] - pair[0]) as f64)
+            .collect();
+        let projection = project_next(&deltas);
+        rows.push((
+            projection.delta,
+            format!("{kind:?}"),
+            key,
+            projection.low,
+            projection.high,
+        ));
+    }
+    if rows.is_empty() {
+        return Ok(Vec::new());
+    }
+    rows.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+    let mut lines = vec![format!(
+        "## Forecast: projected next-day delta, top {} (naive recency-weighted, band = spread)",
+        rows.len().min(50)
+    )];
+    for (delta, kind, key, low, high) in rows.iter().take(50) {
+        lines.push(format!(
+            "- [{kind}] {key} — projected {delta:+.0}/day (band {low:.0} to {high:.0})"
+        ));
+    }
+    Ok(lines)
+}
+
 fn shapes_section(store: &Store, window: u32, min_days: u32) -> trendkit_core::Result<Vec<String>> {
     use signalkit_integrity::classify_shape;
     use std::collections::BTreeMap;
@@ -751,6 +833,69 @@ async fn send_telegram_digest(settings: &config::Settings, report_text: &str) ->
         .await
         .context("telegram send failed")?;
     println!("telegram: digest sent to chat {chat_id}");
+    Ok(())
+}
+
+fn cmd_forecast(settings: config::Settings, min_points: u32, db: PathBuf) -> Result<()> {
+    let _ = settings;
+    let store = Store::open(&db).context("open store")?;
+    let series = store.daily_scores(30)?;
+
+    // Group per subject
+    let mut per_subject: std::collections::BTreeMap<
+        (trendkit_core::SourceKind, String),
+        Vec<(String, i64)>,
+    > = std::collections::BTreeMap::new();
+    for point in series {
+        per_subject
+            .entry((point.kind, point.key))
+            .or_default()
+            .push((point.day, point.score));
+    }
+
+    let mut projections: Vec<(f64, f64, f64, String, String, i64)> = Vec::new();
+    for ((kind, key), mut points) in per_subject {
+        if points.len() < min_points as usize {
+            continue;
+        }
+        points.sort();
+        let scores: Vec<i64> = points.iter().map(|(_, s)| *s).collect();
+        let deltas: Vec<f64> = scores.windows(2).map(|p| (p[1] - p[0]) as f64).collect();
+        let projection = signalkit_core::score::project_next(&deltas);
+        let latest = *scores.last().unwrap_or(&0);
+        projections.push((
+            projection.delta,
+            projection.confidence,
+            projection.low,
+            format!("{kind:?}"),
+            key,
+            latest,
+        ));
+    }
+
+    if projections.is_empty() {
+        println!("forecast: no subjects with >= {min_points} daily points");
+        return Ok(());
+    }
+
+    projections.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+    println!(
+        "Forecast: projected next-day delta, top {} of {} subjects (naive recency-weighted, band = 1-sigma)\n",
+        projections.len().min(20),
+        projections.len()
+    );
+    println!(
+        "{:<6} {:<36} {:>10} {:>10} {:>8}",
+        "KIND", "SUBJECT", "LATEST", "PROJECTED", "CONF"
+    );
+    println!("{}", "-".repeat(80));
+    for (delta, conf, _low, kind, key, latest) in projections.iter().take(20) {
+        println!("{kind:>8} {key:<36} {latest:>10} {delta:>+10.0} {conf:>8.2}");
+    }
+    println!(
+        "\nNote: naive extrapolation with < 1 week of history.\nTreat as directional, not predictive.\nConfidence scales with history length (max 1.00 at 7 days)."
+    );
     Ok(())
 }
 
