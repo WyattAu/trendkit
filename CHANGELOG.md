@@ -3,7 +3,7 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
-## 0.3.14 — 2026-10-24
+## 0.3.15 — 2026-10-24
 
 - **Forecast time-order fix**: `forecast_section` sorted each subject's
   daily scores by value before differencing. For monotonic counters
@@ -21,9 +21,12 @@ tool, not a library contract. breaking changes called out inline.
   download dynamics are multiplicative (median relative error 236
   percent). A per-kind band or log-scale projection is the honest 0.4.x
   change; not patched hastily on one week of data.
-- (0.3.13 was published from an uncommitted tree with only a
-  config-kit 1.0 dependency bump; no code changes. This entry stands in
-  for its missing changelog line.)
+- **0.3.14 yanked**: a concurrent working tree published 0.3.14 twelve
+  minutes before this one, carrying 0.3.13's source under a new version
+  number and missing this fix. It matched no git tag, so it was yanked
+  to keep crates.io and git honest with each other. The version-number
+  collisions (0.3.13, 0.3.14) both came from un-synced working trees —
+  the fix is process, not code: version bumps happen in one tree only.
 
 ## 0.3.5 / core 0.3.1 — 2026-10-20
 
