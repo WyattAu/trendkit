@@ -511,10 +511,22 @@ async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> 
     Ok(())
 }
 
+/// Project the next-day delta from a day-ordered score series.
+/// Deltas must follow time order: `Store::daily_scores` already returns
+/// points ordered by day. Sorting the scores by value instead would
+/// scramble any non-monotonic series (an HN story that dips and
+/// recovers) and corrupt the projection.
+fn project_series(scores: &[i64]) -> signalkit_core::score::Projection {
+    let deltas: Vec<f64> = scores
+        .windows(2)
+        .map(|pair| (pair[1] - pair[0]) as f64)
+        .collect();
+    signalkit_core::score::project_next(&deltas)
+}
+
 /// Classify multi-day subjects into accelerating/steady/fading lists.
 /// Project tomorrow's delta per subject from its daily score series.
 fn forecast_section(store: &Store, min_points: u32) -> trendkit_core::Result<Vec<String>> {
-    use signalkit_core::score::project_next;
     use std::collections::BTreeMap;
 
     let series = store.daily_scores(30)?;
@@ -527,16 +539,11 @@ fn forecast_section(store: &Store, min_points: u32) -> trendkit_core::Result<Vec
     }
 
     let mut rows: Vec<(f64, String, String, f64, f64)> = Vec::new();
-    for ((kind, key), mut scores) in per_subject {
+    for ((kind, key), scores) in per_subject {
         if (scores.len() as u32) < min_points {
             continue;
         }
-        scores.sort();
-        let deltas: Vec<f64> = scores
-            .windows(2)
-            .map(|pair| (pair[1] - pair[0]) as f64)
-            .collect();
-        let projection = project_next(&deltas);
+        let projection = project_series(&scores);
         rows.push((
             projection.delta,
             format!("{kind:?}"),
@@ -942,5 +949,86 @@ fn print_profile_summary(profile: &Profile) {
             .collect::<Vec<_>>()
             .join(", ");
         println!("{label}: {line}");
+    }
+}
+
+#[cfg(test)]
+mod forecast_tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+    use super::project_series;
+    use signalkit_core::score::project_next;
+    use trendkit_core::model::{Observation, SourceKind, SubjectRecord};
+    use trendkit_core::store::Store;
+
+    /// Regression: deltas must follow time order, not value order.
+    /// A value sort (the old behavior) turned the non-monotonic series
+    /// 50, 30, 40 into 30, 40, 50 and projected +10/day; the honest
+    /// time-ordered deltas are -20 then +10, which recency-weight to 0.
+    #[test]
+    fn deltas_follow_time_order_not_value_order() {
+        let p = project_series(&[50, 30, 40]);
+        let expected = project_next(&[-20.0, 10.0]);
+        assert_eq!(p.delta, expected.delta);
+        assert_eq!(p.low, expected.low);
+        assert_eq!(p.high, expected.high);
+
+        let buggy = project_next(&[10.0, 10.0]);
+        assert!(
+            (p.delta - buggy.delta).abs() > 1.0,
+            "fixed projection {} must differ from the value-sorted one {}",
+            p.delta,
+            buggy.delta
+        );
+    }
+
+    /// Monotonic series are unaffected by the fix: value order and time
+    /// order coincide, so the projection must be identical either way.
+    #[test]
+    fn monotonic_series_unchanged() {
+        let p = project_series(&[100, 150, 220]);
+        let expected = project_next(&[50.0, 70.0]);
+        assert_eq!(p.delta, expected.delta);
+    }
+
+    /// End to end: daily_scores returns day-ordered points, so the
+    /// section's projection must match the time-ordered expectation.
+    #[test]
+    fn forecast_section_uses_day_order() {
+        let store = Store::open_in_memory().unwrap();
+        let id = store
+            .upsert_subject(&SubjectRecord {
+                kind: SourceKind::HnStory,
+                key: "story1".to_string(),
+                title: None,
+                lang: None,
+                url: None,
+                topics: vec![],
+                created_at: None,
+            })
+            .unwrap();
+        let base: i64 = 1_770_000_000;
+        for (day, score) in [(0, 50), (1, 30), (2, 40)] {
+            store
+                .insert_observation(
+                    id,
+                    &Observation {
+                        ts: base + i64::from(day) * 86_400,
+                        score,
+                        extra1: 0,
+                        extra2: 0,
+                    },
+                )
+                .unwrap();
+        }
+        let lines = super::forecast_section(&store, 3).unwrap();
+        assert_eq!(lines.len(), 2, "header plus one row: {lines:?}");
+        let p = project_series(&[50, 30, 40]);
+        let fragment = format!("projected {:+.0}/day", p.delta);
+        assert!(
+            lines[1].contains(&fragment),
+            "row must carry the time-ordered projection: {}",
+            lines[1]
+        );
     }
 }

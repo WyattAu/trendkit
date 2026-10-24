@@ -3,6 +3,28 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
+## 0.3.14 — 2026-10-24
+
+- **Forecast time-order fix**: `forecast_section` sorted each subject's
+  daily scores by value before differencing. For monotonic counters
+  (stars, downloads) value order coincides with day order and nothing
+  changed, but any non-monotonic series (an HN story that dips and
+  recovers, an HF model whose downloads fluctuate) had its timeline
+  scrambled, projecting from fabricated deltas. Deltas now follow time
+  order as returned by `daily_scores`. Regression tests cover the
+  non-monotonic case, the monotonic invariance, and the store-to-section
+  path. Backtest over 7 days of data: on the 20 HF models where the bug
+  bit, mean absolute error drops from 90.8k to 40.9k projected delta.
+- Band calibration receipt (report, not code): the ±1 sigma spread band
+  under-covers for every kind. A ~68 percent band needs roughly 2-3x the
+  current spread (crates 2.9x, github 2.2x, hn 1.4x, hf 3.3x), and HF
+  download dynamics are multiplicative (median relative error 236
+  percent). A per-kind band or log-scale projection is the honest 0.4.x
+  change; not patched hastily on one week of data.
+- (0.3.13 was published from an uncommitted tree with only a
+  config-kit 1.0 dependency bump; no code changes. This entry stands in
+  for its missing changelog line.)
+
 ## 0.3.5 / core 0.3.1 — 2026-10-20
 
 - **HF metadata tags filtered**: `region:`/`license:`/`arxiv:`/`doi:` tags
