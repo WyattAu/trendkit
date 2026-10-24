@@ -251,9 +251,9 @@ dependencies = [
 
 [[package]]
 name = "config-kit"
-version = "0.1.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75ea96e6d3e7083ddeed81d93bfe57e3d66b85f94f62c33f8d91e7546c9fc1bd"
+checksum = "fcfa8c09f928294b59a4341f5e4ab932dd31769140929ea16d3288f771c423e2"
 dependencies = [
  "serde",
  "serde_ignored",
@@ -2108,7 +2108,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit"
-version = "0.3.11"
+version = "0.3.12"
 dependencies = [
  "anyhow",
  "clap",
