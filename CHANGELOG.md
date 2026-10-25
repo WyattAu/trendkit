@@ -3,6 +3,18 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
+## 0.6.0 — 2026-10-25
+
+- **EDGAR source removed; business scraping moved back to bizkit**
+  where it belongs as a separate scraper with its own store, queries,
+  and cadence. Layer correction: trendkit tracks dev trends (github,
+  hn, crates.io, trending, huggingface); bizkit tracks SEC filings.
+  trendkit-core drops the bizkit-core dependency and the edgar
+  module; signalkit-core 0.3.0 drops SourceKind::Edgar. The edgar
+  subjects, observations, and forecasts are purged from the store.
+- bizkit gains the daily watch command and its own fleet timer (see
+  the bizkit repo and chezmoi fleet config).
+
 ## 0.5.2 — 2026-10-25
 
 - EDGAR watchlist gains `acquisition of` (bizkit's highest-yield query,

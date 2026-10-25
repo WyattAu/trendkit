@@ -129,20 +129,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 
 [[package]]
-name = "bizkit-core"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8c850a9867e24bf1ebf607bfebbc2408d4491565b391e953493a88053a6a1b0"
-dependencies = [
- "fetch-kit",
- "rusqlite",
- "serde",
- "serde_json",
- "thiserror",
- "tracing",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1722,9 +1708,9 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "signalkit-core"
-version = "0.2.3"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e612f016af1e03c2452db4c7edfed0e1f1bb385b76d74068312d5847c52303a1"
+checksum = "148df0bcb65d132635fa47319f142b5a5605de44ece21a450843091d41d02e4d"
 dependencies = [
  "clock-kit",
  "fetch-kit",
@@ -1737,9 +1723,9 @@ dependencies = [
 
 [[package]]
 name = "signalkit-integrity"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50160ec2574d63a8da14fdca0f82187356d27885ce9ad725b25e9a1087fefed7"
+checksum = "682ec903822fb2ea43be9d965653d17365e1281ea3deb363cd5fe65027590bf6"
 dependencies = [
  "rusqlite",
  "signalkit-core",
@@ -2122,7 +2108,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit"
-version = "0.5.3"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2141,9 +2127,8 @@ dependencies = [
 
 [[package]]
 name = "trendkit-core"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
- "bizkit-core",
  "fetch-kit",
  "retry-backoff",
  "scraper",
@@ -2157,7 +2142,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit-profile"
-version = "0.5.2"
+version = "0.6.0"
 dependencies = [
  "trendkit-core",
 ]

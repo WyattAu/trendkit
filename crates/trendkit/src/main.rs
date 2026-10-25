@@ -18,7 +18,6 @@ use clap::{Parser, Subcommand, ValueEnum};
 use clock_kit::SystemClock;
 use config_kit::Sensitive;
 use trendkit_core::cratesio::CratesSource;
-use trendkit_core::edgar::EdgarSource;
 use trendkit_core::github::GithubSource;
 use trendkit_core::hf::HfSource;
 use trendkit_core::hn::HnSource;
@@ -140,7 +139,6 @@ enum SourceSel {
     Cratesio,
     Trending,
     Huggingface,
-    Edgar,
 }
 
 /// Flags for one `report` invocation.
@@ -297,7 +295,6 @@ async fn cmd_collect(
         SourceSel::Cratesio => &["cratesio"],
         SourceSel::Trending => &["trending"],
         SourceSel::Huggingface => &["huggingface"],
-        SourceSel::Edgar => &["edgar"],
     };
 
     for name in selected {
@@ -311,7 +308,6 @@ async fn cmd_collect(
             "cratesio" => CratesSource::new().collect(&ctx).await?,
             "trending" => TrendingSource::new().collect(&ctx).await?,
             "huggingface" => HfSource::new().collect(&ctx).await?,
-            "edgar" => EdgarSource::new().collect(&ctx).await?,
             other => anyhow::bail!("unknown source: {other}"),
         };
         println!(
@@ -560,9 +556,6 @@ fn spread_multiplier(kind: trendkit_core::SourceKind) -> f64 {
         GithubRepo => 1.9,
         HfModel => 1.5,
         HnStory => 1.0,
-        // No calibration data yet: filings are discrete and sparse, so
-        // start wide and tighten from held-out receipts as they land.
-        Edgar => 2.0,
     }
 }
 

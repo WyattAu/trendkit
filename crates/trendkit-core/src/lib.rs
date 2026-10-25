@@ -10,7 +10,6 @@
 pub mod ai;
 pub mod clock;
 pub mod cratesio;
-pub mod edgar;
 pub mod error;
 pub mod github;
 pub mod hf;
