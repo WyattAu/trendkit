@@ -99,6 +99,10 @@ enum Command {
         /// recommended) — for weekly public pages.
         #[arg(long)]
         out: Option<std::path::PathBuf>,
+        /// Write the standalone trust index page (flagged subjects,
+        /// farm clusters, methodology) to this file.
+        #[arg(long)]
+        trust_page: Option<std::path::PathBuf>,
     },
     /// Project next-day deltas for subjects with >= N daily points.
     Forecast {
@@ -169,6 +173,8 @@ struct ReportOpts {
     forecast: u32,
     /// Write the rendered report to this file.
     out: Option<std::path::PathBuf>,
+    /// Write the standalone trust index page to this file.
+    trust_page: Option<std::path::PathBuf>,
 }
 
 #[tokio::main]
@@ -213,6 +219,7 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
             ai,
             telegram,
             out,
+            trust_page,
         } => {
             cmd_report(
                 settings,
@@ -230,6 +237,7 @@ async fn run(command: Command, settings: config::Settings) -> Result<()> {
                     ai,
                     telegram,
                     out,
+                    trust_page,
                 },
             )
             .await
@@ -514,6 +522,17 @@ async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> 
         std::fs::write(&target, final_text)
             .with_context(|| format!("write report to {}", target.display()))?;
         println!("wrote report to {}", target.display());
+    }
+
+    if let Some(path) = &opts.trust_page {
+        match trust_page(&store, opts.window) {
+            Ok(text) => {
+                std::fs::write(path, &text)
+                    .with_context(|| format!("write trust page to {}", path.display()))?;
+                println!("wrote trust page to {}", path.display());
+            }
+            Err(err) => eprintln!("warning: trust page failed: {err}"),
+        }
     }
 
     if opts.telegram {
@@ -951,6 +970,106 @@ async fn ai_digest(settings: &config::Settings, report_text: &str) -> Result<Opt
 }
 
 /// Today's UTC date as `YYYY-MM-DD` (for auto-dated report filenames).
+/// Render the standalone trust index page: flagged subjects worst
+/// first, the `.github` name-cluster farm with its day-by-day growth,
+/// and the methodology so every number is reproducible.
+fn trust_page(store: &Store, window: u32) -> trendkit_core::Result<String> {
+    use signalkit_integrity::{fork_flags, trust_rows};
+
+    let rows = trust_rows(store, window, 200)?;
+    let flags = fork_flags(store, window, 100)?;
+    let cluster = store.fork_cluster_days("/.github", 20.0)?;
+    let (subjects, observations) = store.counts()?;
+
+    let mut out = String::new();
+    out.push_str(&format!("# trendkit trust index — {}\n\n", iso_today()));
+    out.push_str(&format!(
+        "Generated from {subjects} tracked subjects and {observations} observations \
+         over a {window}-day window by [trendkit](https://crates.io/crates/trendkit). \
+         Every number below is recomputed from the raw snapshot store; the code that \
+         computes it is public.\n\n"
+    ));
+
+    out.push_str(&format!(
+        "## Flagged subjects: {} above the Elevated fork-ratio line\n\n",
+        flags.len()
+    ));
+    out.push_str("Trust blends four signals: fork ratio, membership in an org burst, velocity-outlier z, and subject age. Sorted worst first; `trust` runs 0-100.\n\n");
+    out.push_str("| repo | stars | forks | ratio | trust |\n|---|---:|---:|---:|---:|\n");
+    let counts_by_key: std::collections::HashMap<&str, (i64, i64)> = flags
+        .iter()
+        .map(|f| (f.key.as_str(), (f.stars, f.forks)))
+        .collect();
+    for row in rows.iter().take(20) {
+        let (stars, forks) = counts_by_key
+            .get(row.key.as_str())
+            .copied()
+            .unwrap_or((0, 0));
+        out.push_str(&format!(
+            "| {} | {} | {} | {:.0}% | {} |\n",
+            row.key,
+            format_int(stars),
+            format_int(forks),
+            row.summary.fork_ratio_pct,
+            row.summary.score as i64
+        ));
+    }
+
+    out.push_str("\n## Name-cluster farms\n\n");
+    if cluster.is_empty() {
+        out.push_str("No cluster active in the window.\n");
+    } else {
+        out.push_str(
+            "Repo names ending in `/.github` with a best-known fork ratio over 20 percent, \
+             counted per day. These are template-deployed farms: one repository \
+             cloned across freshly created orgs, stars bought in batches. Sources \
+             observe members sporadically, so each day counts every member whose \
+             last known state had cleared the line.\n\n",
+        );
+        out.push_str("| day | cluster size |\n|---|---:|\n");
+        for (day, n) in &cluster {
+            out.push_str(&format!("| {day} | {n} |\n"));
+        }
+        let latest = cluster.last().map_or(0, |(_, n)| *n);
+        let first = cluster.first().map_or(0, |(_, n)| *n);
+        out.push_str(&format!(
+            "\nThe cluster grew from {first} to {latest} orgs across this window.\n"
+        ));
+    }
+
+    out.push_str("\n## Method\n\n");
+    out.push_str(
+        "- Fork ratio = forks per 100 stars at the latest snapshot; Elevated starts \
+         at 20 percent, Extreme near 100.\n\
+         - Trust blends fork ratio, org-burst membership (3+ same-shape repos \
+         created within 5 days), velocity-outlier z, and subject age. Extreme fork \
+         verdicts cap the trust band at Watch.\n\
+         - A high fork ratio alone is not fraud: this page only claims that the \
+         engagement pattern is farm-shaped. The named clusters' ratios (81-100 \
+         percent) are far beyond organic baselines (this store's median is ~7).\n\
+         - Known limits: bought stars that stay under the ratio line are invisible \
+         here; deleted repos leave gaps.\n",
+    );
+    Ok(out)
+}
+
+/// Thousands-separated integer for page tables.
+fn format_int(n: i64) -> String {
+    let s = n.abs().to_string();
+    let mut out = String::new();
+    for (i, c) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    if n < 0 {
+        format!("-{out}")
+    } else {
+        out
+    }
+}
+
 fn iso_today() -> String {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

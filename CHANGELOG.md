@@ -3,6 +3,19 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
+## 0.5.1 — 2026-10-25
+
+- **Trust index page**: `report --trust-page <path>` renders a
+  standalone public page from the snapshot store — flagged subjects
+  worst-first (97 above the Elevated line today, top of the list at a
+  226 percent fork ratio), the `.github` name-cluster farm with its
+  day-by-day size, and the full method. First release:
+  `reports/TRUST_INDEX.md`.
+- signalkit-core 0.2.3 `fork_cluster_days`: the cluster curve counts
+  each member's last known state per day, not same-day observations —
+  sources see farm members sporadically, and same-day counting made
+  the farm look like it shrank whenever coverage dipped.
+
 ## 0.5.0 — 2026-10-25
 
 - **The forecast loop is closed.** Every projection is now persisted

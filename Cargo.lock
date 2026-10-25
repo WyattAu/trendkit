@@ -1722,9 +1722,9 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "signalkit-core"
-version = "0.2.0"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "939fdcc0d2bf2b3843ef884097e117bca6b999910f69134b2dbe229ea1589b94"
+checksum = "e612f016af1e03c2452db4c7edfed0e1f1bb385b76d74068312d5847c52303a1"
 dependencies = [
  "clock-kit",
  "fetch-kit",
@@ -2122,7 +2122,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -2141,7 +2141,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit-core"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "bizkit-core",
  "fetch-kit",
@@ -2157,7 +2157,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit-profile"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "trendkit-core",
 ]
