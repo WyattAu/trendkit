@@ -2141,7 +2141,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit-core"
-version = "0.3.1"
+version = "0.5.0"
 dependencies = [
  "bizkit-core",
  "fetch-kit",
@@ -2157,7 +2157,7 @@ dependencies = [
 
 [[package]]
 name = "trendkit-profile"
-version = "0.3.1"
+version = "0.5.0"
 dependencies = [
  "trendkit-core",
 ]

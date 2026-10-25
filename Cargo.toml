@@ -34,7 +34,7 @@ categories = ["command-line-utilities", "development-tools"]
 
 [workspace.dependencies]
 trendkit-core = { path = "crates/trendkit-core", version = "0.5.0" }
-trendkit-profile = { path = "crates/trendkit-profile", version = "0.3.0" }
+trendkit-profile = { path = "crates/trendkit-profile", version = "0.5.0" }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
