@@ -282,14 +282,7 @@ async fn cmd_collect(
     };
 
     let selected: &[&str] = match sel {
-        SourceSel::All => &[
-            "github",
-            "hn",
-            "cratesio",
-            "trending",
-            "huggingface",
-            "edgar",
-        ],
+        SourceSel::All => &["github", "hn", "cratesio", "trending", "huggingface"],
         SourceSel::Github => &["github"],
         SourceSel::Hn => &["hn"],
         SourceSel::Cratesio => &["cratesio"],

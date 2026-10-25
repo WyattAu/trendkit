@@ -3,6 +3,13 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
+## 0.6.1 — 2026-10-25
+
+- Fix: a leftover `edgar` entry in the `--source all` list survived
+  the 0.6.0 removal; `collect --source all` would have exited unknown
+  source at the next scheduled run. Caught by the post-removal sweep,
+  verified by a full live five-source pass.
+
 ## 0.6.0 — 2026-10-25
 
 - **EDGAR source removed; business scraping moved back to bizkit**
