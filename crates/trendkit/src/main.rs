@@ -506,7 +506,7 @@ async fn cmd_report(settings: config::Settings, opts: ReportOpts) -> Result<()> 
     }
 
     if opts.telegram {
-        send_telegram_digest(&settings, telegram_text.as_deref().unwrap_or(&text)).await?;
+        send_telegram_digest(&settings, &store, telegram_text.as_deref().unwrap_or(&text)).await?;
     }
     Ok(())
 }
@@ -870,7 +870,38 @@ fn chat_id_of(settings: &config::Settings) -> Result<String> {
         })
 }
 
-async fn send_telegram_digest(settings: &config::Settings, report_text: &str) -> Result<()> {
+async fn send_telegram_digest(
+    settings: &config::Settings,
+    store: &Store,
+    report_text: &str,
+) -> Result<()> {
+    let outcome = deliver_digest(settings, report_text).await;
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    match &outcome {
+        Ok(chat_id) => {
+            if let Err(err) = store.record_digest(ts, true, "") {
+                eprintln!("warning: could not record digest success: {err}");
+            }
+            println!("telegram: digest sent to chat {chat_id}");
+        }
+        Err(err) => {
+            let detail = format!("{err:#}");
+            // Keep the detail short enough for a row and an alert line.
+            let detail = detail.chars().take(300).collect::<String>();
+            if let Err(log_err) = store.record_digest(ts, false, &detail) {
+                eprintln!("warning: could not record digest failure: {log_err}");
+            }
+            eprintln!("telegram: digest failed: {detail}");
+        }
+    }
+    outcome.map(|_| ())
+}
+
+/// Resolve credentials, render, and deliver the digest.
+async fn deliver_digest(settings: &config::Settings, report_text: &str) -> Result<String> {
     let token = telegram_token(settings)?;
     let chat_id = chat_id_of(settings)?;
     let message = trendkit_core::telegram::truncate_for_telegram(
@@ -880,8 +911,7 @@ async fn send_telegram_digest(settings: &config::Settings, report_text: &str) ->
     trendkit_core::telegram::send_markdown(&token, &chat_id, &message)
         .await
         .context("telegram send failed")?;
-    println!("telegram: digest sent to chat {chat_id}");
-    Ok(())
+    Ok(chat_id)
 }
 
 fn cmd_forecast(settings: config::Settings, min_points: u32, db: PathBuf) -> Result<()> {

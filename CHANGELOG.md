@@ -3,6 +3,22 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
+## 0.4.1 — 2026-10-25
+
+- **Digest attempts are now recorded** (signalkit-core 0.1.5
+  `digest_runs`): the report step is fail-soft in the fleet unit
+  (ExecStartPost with `-`), so a broken digest never shows in the unit
+  status, and journald kept no entries to diagnose it. Every attempt
+  now writes (ts, ok, detail) to `digest_runs` — success as ok=1,
+  failure with the error chain truncated to 300 chars. Failures still
+  exit 1 for systemd, but the cause becomes queryable the same hour
+  sys-check runs.
+- sys-check (fleet side, separate repo) alerts when the newest digest
+  attempt is missing, older than 48h, or failed with its detail.
+- Day 8 context: today's 08:13 digest failed root-side with no
+  surviving logs; collection succeeded. With this instrumentation the
+  next failure carries its own evidence.
+
 ## 0.4.0 — 2026-10-24
 
 - **Forecast estimator upgraded, bands calibrated** (signalkit-core
