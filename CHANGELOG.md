@@ -3,6 +3,31 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
+## 0.5.0 — 2026-10-25
+
+- **The forecast loop is closed.** Every projection is now persisted
+  (signalkit-core 0.2.1 `forecasts`, unique per target day and
+  subject) and scored the next morning against the observed delta:
+  MAE and band-hit rate, overall and per kind, rendered as a
+  verification block in the digest. Forecasts are falsifiable
+  evidence now, not vaporized Telegram lines. First batch: 753
+  forecasts persisted for 2026-10-26.
+- **EDGAR is the sixth source** (signalkit-core 0.2.0
+  `SourceKind::Edgar`, trendkit-core `EdgarSource` on bizkit-core's
+  full-text-search client). Each pass runs two curated M&A watch
+  queries (merger agreement, tender offer) over the rolling window
+  and records per-filer window counts; the day-over-day delta is
+  filings velocity. Idempotent by construction: the count is
+  window-computed, never accumulated. First pass: 200 filings, 88
+  filers. Spread multiplier starts at 2.0 pending held-out receipts.
+- Weekly seasonality observed, not yet modeled: Sunday crate
+  downloads dip enough that the walk estimator honestly projects the
+  dip (syn +6.2M on Sunday vs +14.5M midweek). Monday runs will
+  overpredict if the pattern holds; the verification block will
+  measure it instead of guessing.
+- Fleet unit gains `--forecast 6` (chezmoi side); digests now carry
+  projections and their verification.
+
 ## 0.4.1 — 2026-10-25
 
 - **Digest attempts are now recorded** (signalkit-core 0.1.5

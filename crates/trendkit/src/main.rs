@@ -18,6 +18,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use clock_kit::SystemClock;
 use config_kit::Sensitive;
 use trendkit_core::cratesio::CratesSource;
+use trendkit_core::edgar::EdgarSource;
 use trendkit_core::github::GithubSource;
 use trendkit_core::hf::HfSource;
 use trendkit_core::hn::HnSource;
@@ -135,6 +136,7 @@ enum SourceSel {
     Cratesio,
     Trending,
     Huggingface,
+    Edgar,
 }
 
 /// Flags for one `report` invocation.
@@ -274,12 +276,20 @@ async fn cmd_collect(
     };
 
     let selected: &[&str] = match sel {
-        SourceSel::All => &["github", "hn", "cratesio", "trending", "huggingface"],
+        SourceSel::All => &[
+            "github",
+            "hn",
+            "cratesio",
+            "trending",
+            "huggingface",
+            "edgar",
+        ],
         SourceSel::Github => &["github"],
         SourceSel::Hn => &["hn"],
         SourceSel::Cratesio => &["cratesio"],
         SourceSel::Trending => &["trending"],
         SourceSel::Huggingface => &["huggingface"],
+        SourceSel::Edgar => &["edgar"],
     };
 
     for name in selected {
@@ -293,6 +303,7 @@ async fn cmd_collect(
             "cratesio" => CratesSource::new().collect(&ctx).await?,
             "trending" => TrendingSource::new().collect(&ctx).await?,
             "huggingface" => HfSource::new().collect(&ctx).await?,
+            "edgar" => EdgarSource::new().collect(&ctx).await?,
             other => anyhow::bail!("unknown source: {other}"),
         };
         println!(
@@ -530,6 +541,9 @@ fn spread_multiplier(kind: trendkit_core::SourceKind) -> f64 {
         GithubRepo => 1.9,
         HfModel => 1.5,
         HnStory => 1.0,
+        // No calibration data yet: filings are discrete and sparse, so
+        // start wide and tighten from held-out receipts as they land.
+        Edgar => 2.0,
     }
 }
 
@@ -567,47 +581,168 @@ fn project_series(
 
 /// Classify multi-day subjects into accelerating/steady/fading lists.
 /// Project tomorrow's delta per subject from its daily score series.
+/// Score every persisted forecast whose target day has arrived, then
+/// project and persist the next batch. Returns the forecast lines plus
+/// a verification block when scored rows exist.
+///
+/// Day semantics: `made_on` is the latest observed day, `for_day` the
+/// one after it. On the next morning's run the target day's snapshot
+/// has landed, so the observed delta is `score(for_day) - score(prev)`
+/// and the row becomes falsifiable evidence instead of a vaporized
+/// Telegram line.
 fn forecast_section(store: &Store, min_points: u32) -> trendkit_core::Result<Vec<String>> {
     use std::collections::BTreeMap;
 
     let series = store.daily_scores(30)?;
-    let mut per_subject: BTreeMap<(trendkit_core::SourceKind, String), Vec<i64>> = BTreeMap::new();
+    // (kind, key) -> day-ordered (day, score) pairs.
+    let mut per_subject: BTreeMap<(trendkit_core::SourceKind, String), Vec<(String, i64)>> =
+        BTreeMap::new();
     for point in series {
         per_subject
             .entry((point.kind, point.key))
             .or_default()
-            .push(point.score);
+            .push((point.day.clone(), point.score));
     }
 
+    // 1. Score due forecasts against observed deltas.
+    let made_on = per_subject
+        .values()
+        .flat_map(|pairs| pairs.iter().map(|(d, _)| d.clone()))
+        .max()
+        .ok_or_else(|| trendkit_core::TrendError::Config("no observations".to_owned()))?;
+    let for_day = next_iso_day(&made_on)
+        .ok_or_else(|| trendkit_core::TrendError::Config(format!("bad max day: {made_on}")))?;
+    let mut scored = 0usize;
+    let mut hits = 0usize;
+    for due in store.due_forecasts(&made_on)? {
+        let Some(pairs) = per_subject.get(&(due.kind, due.key.clone())) else {
+            continue; // subject left the window: row stays unscored
+        };
+        let Some(pos) = pairs.iter().position(|(d, _)| *d == due.for_day) else {
+            continue; // no snapshot on the target day yet
+        };
+        if pos == 0 {
+            continue; // no prior day to difference against
+        }
+        let actual = (pairs[pos].1 - pairs[pos - 1].1) as f64;
+        let band_hit = actual >= due.low && actual <= due.high;
+        store.score_forecast(due.id, actual, band_hit)?;
+        scored += 1;
+        hits += usize::from(band_hit);
+    }
+
+    // 2. Verification block from all scored history.
+    let history = store.scored_forecasts()?;
+    let mut lines: Vec<String> = Vec::new();
+    if !history.is_empty() {
+        let n = history.len();
+        let mae: f64 = history
+            .iter()
+            .map(|(_, p, a, _)| (p - a).abs())
+            .sum::<f64>()
+            / n as f64;
+        let band = history.iter().filter(|(.., h)| *h).count();
+        lines.push(format!(
+            "## Forecast verification: {n} scored, MAE {mae:.0}, band hit {band}/{n} ({:.0}%)",
+            100.0 * band as f64 / n as f64
+        ));
+        let mut by_kind: BTreeMap<&str, (usize, f64, usize)> = BTreeMap::new();
+        for (kind, p, a, h) in &history {
+            let e = by_kind.entry(kind.as_str()).or_default();
+            e.0 += 1;
+            e.1 += (p - a).abs();
+            e.2 += usize::from(*h);
+        }
+        for (kind, (k_n, k_err, k_hits)) in by_kind {
+            lines.push(format!(
+                "- {kind}: {k_n} scored, MAE {:.0}, band hit {k_hits}/{k_n}",
+                k_err / k_n as f64
+            ));
+        }
+        lines.push(String::new());
+    }
+
+    // 3. Project and persist the next batch.
     let mut rows: Vec<(f64, String, String, f64, f64)> = Vec::new();
-    for ((kind, key), scores) in per_subject {
-        if (scores.len() as u32) < min_points {
+    let mut inputs: Vec<trendkit_core::model::ForecastInput<'_>> = Vec::new();
+    for ((kind, key), pairs) in &per_subject {
+        if (pairs.len() as u32) < min_points {
             continue;
         }
-        let projection = project_series(kind, &scores);
+        let scores: Vec<i64> = pairs.iter().map(|(_, s)| *s).collect();
+        let projection = project_series(*kind, &scores);
+        let estimator = if *kind == trendkit_core::SourceKind::HfModel {
+            "mean"
+        } else {
+            "walk"
+        };
+        inputs.push(trendkit_core::model::ForecastInput {
+            kind: *kind,
+            key,
+            projected: projection.delta,
+            low: projection.low,
+            high: projection.high,
+            estimator,
+        });
         rows.push((
             projection.delta,
             format!("{kind:?}"),
-            key,
+            key.clone(),
             projection.low,
             projection.high,
         ));
     }
     if rows.is_empty() {
+        if !lines.is_empty() {
+            return Ok(lines);
+        }
         return Ok(Vec::new());
     }
+    store.record_forecasts(&made_on, &for_day, &inputs)?;
     rows.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
-    let mut lines = vec![format!(
-        "## Forecast: projected next-day delta, top {} (walk or mean per kind, per-kind calibrated band)",
-        rows.len().min(50)
-    )];
+    lines.push(format!(
+        "## Forecast: projected next-day delta for {for_day}, top {} of {} (walk or mean per kind, calibrated band)",
+        rows.len().min(50),
+        rows.len()
+    ));
     for (delta, kind, key, low, high) in rows.iter().take(50) {
         lines.push(format!(
             "- [{kind}] {key} — projected {delta:+.0}/day (band {low:.0} to {high:.0})"
         ));
     }
+    lines.push(format!(
+        "- persisted {} forecasts made on {made_on}; scored {scored} due today ({hits} band hits)",
+        inputs.len()
+    ));
     Ok(lines)
+}
+
+/// The calendar day after an ISO `YYYY-MM-DD` date.
+fn next_iso_day(day: &str) -> Option<String> {
+    let mut parts = day.split('-');
+    let y: i64 = parts.next()?.parse().ok()?;
+    let m: i64 = parts.next()?.parse().ok()?;
+    let d: i64 = parts.next()?.parse().ok()?;
+    // Hinnant's days_from_civil, then civil_from_days + 1.
+    let y_adj = if m <= 2 { y - 1 } else { y };
+    let era = y_adj.div_euclid(400);
+    let yoe = y_adj - era * 400;
+    let mp = (m + 9).rem_euclid(12);
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468 + 1;
+    let z = days + 719_468;
+    let era2 = z.div_euclid(146_097);
+    let doe2 = z - era2 * 146_097;
+    let yoe2 = (doe2 - doe2 / 1460 + doe2 / 36_524 - doe2 / 146_096) / 365;
+    let y2 = yoe2 + era2 * 400;
+    let doy2 = doe2 - (365 * yoe2 + yoe2 / 4 - yoe2 / 100);
+    let mp2 = (5 * doy2 + 2) / 153;
+    let d2 = doy2 - (153 * mp2 + 2) / 5 + 1;
+    let m2 = if mp2 < 10 { mp2 + 3 } else { mp2 - 9 };
+    let y3 = if m2 <= 2 { y2 + 1 } else { y2 };
+    Some(format!("{y3:04}-{m2:02}-{d2:02}"))
 }
 
 fn shapes_section(store: &Store, window: u32, min_days: u32) -> trendkit_core::Result<Vec<String>> {
@@ -1092,9 +1227,10 @@ mod forecast_tests {
     }
 
     /// End to end: daily_scores returns day-ordered points, so the
-    /// section's projection must match the time-ordered expectation.
+    /// section projects from the honest timeline, persists the batch,
+    /// and on the next day's run scores it against the observed delta.
     #[test]
-    fn forecast_section_uses_day_order() {
+    fn forecast_section_persists_then_scores() {
         let store = Store::open_in_memory().unwrap();
         let id = store
             .upsert_subject(&SubjectRecord {
@@ -1121,14 +1257,57 @@ mod forecast_tests {
                 )
                 .unwrap();
         }
+
+        // Day 3: projects for 2026-02-05 and persists the batch.
         let lines = forecast_section(&store, 3).unwrap();
-        assert_eq!(lines.len(), 2, "header plus one row: {lines:?}");
+        assert_eq!(lines.len(), 3, "header, row, persisted: {lines:?}");
+        assert!(lines[0].contains("for 2026-02-05"), "{}", lines[0]);
         let p = project_series(SourceKind::HnStory, &[50, 30, 40]);
         let fragment = format!("projected {:+.0}/day", p.delta);
-        assert!(
-            lines[1].contains(&fragment),
-            "row must carry the time-ordered projection: {}",
-            lines[1]
+        assert!(lines[1].contains(&fragment), "{}", lines[1]);
+
+        // Day 4 run: the target day's snapshot (score 60) has landed,
+        // so the stored forecast scores as actual +20, a band hit
+        // (band was -4 to 24), and verification renders.
+        store
+            .insert_observation(
+                id,
+                &Observation {
+                    ts: base + 3 * 86_400,
+                    score: 60,
+                    extra1: 0,
+                    extra2: 0,
+                },
+            )
+            .unwrap();
+        let lines = forecast_section(&store, 3).unwrap();
+        let verify = lines
+            .iter()
+            .find(|l| l.contains("Forecast verification"))
+            .expect("verification block");
+        assert!(verify.contains("1 scored"), "{}", verify);
+        assert!(verify.contains("band hit 1/1"), "{}", verify);
+    }
+
+    /// The day-after helper rolls months and years correctly.
+    #[test]
+    fn next_iso_day_rolls() {
+        assert_eq!(
+            super::next_iso_day("2026-10-25").as_deref(),
+            Some("2026-10-26")
         );
+        assert_eq!(
+            super::next_iso_day("2026-10-31").as_deref(),
+            Some("2026-11-01")
+        );
+        assert_eq!(
+            super::next_iso_day("2026-12-31").as_deref(),
+            Some("2027-01-01")
+        );
+        assert_eq!(
+            super::next_iso_day("2028-02-28").as_deref(),
+            Some("2028-02-29")
+        );
+        assert_eq!(super::next_iso_day("not-a-date"), None);
     }
 }
