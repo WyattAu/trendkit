@@ -3,6 +3,14 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
+## 0.5.2 — 2026-10-25
+
+- EDGAR watchlist gains `acquisition of` (bizkit's highest-yield query,
+  100 hits in the Oct 24 baseline crawl) as a third watch query, so the
+  daily series stays comparable with the pre-trendkit baseline. First
+  three-query pass: 300 filings, 159 filers. The window-count score is
+  idempotent under same-day re-runs (daily score = max of passes).
+
 ## 0.5.1 — 2026-10-25
 
 - **Trust index page**: `report --trust-page <path>` renders a

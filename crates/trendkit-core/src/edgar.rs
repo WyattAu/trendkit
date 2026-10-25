@@ -26,12 +26,18 @@ struct WatchQuery {
     forms: &'static str,
 }
 
-/// The v1 M&A watchlist. Two queries per pass keeps the pass inside
-/// SEC fair-access limits; widen cautiously.
-const WATCHLIST: [WatchQuery; 2] = [
+/// The v1 M&A watchlist. Three queries per pass keeps the pass inside
+/// SEC fair-access limits; widen cautiously. `acquisition of` was
+/// bizkit's highest-yield query (100 hits in the Oct 24 baseline
+/// crawl) and is kept so the daily series stays comparable to it.
+const WATCHLIST: [WatchQuery; 3] = [
     WatchQuery {
         phrase: "\"merger agreement\"",
         forms: "8-K,DEFM14A,425,S-4",
+    },
+    WatchQuery {
+        phrase: "\"acquisition of\"",
+        forms: "8-K,DEFM14A,425,S-4,SC 13D,SC 13G",
     },
     WatchQuery {
         phrase: "\"tender offer\"",
