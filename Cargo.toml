@@ -20,7 +20,7 @@ cognitive_complexity = "allow" # Soft metric — enforce via code review
 too_many_arguments = "warn"
 
 [workspace.package]
-version = "0.3.1"
+version = "0.5.0"
 edition = "2021"
 rust-version = "1.95"
 authors = ["Wyatt Au"]
@@ -33,7 +33,7 @@ keywords = ["trends", "github", "crawler", "developer-tools"]
 categories = ["command-line-utilities", "development-tools"]
 
 [workspace.dependencies]
-trendkit-core = { path = "crates/trendkit-core", version = "0.3.1" }
+trendkit-core = { path = "crates/trendkit-core", version = "0.5.0" }
 trendkit-profile = { path = "crates/trendkit-profile", version = "0.3.0" }
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
