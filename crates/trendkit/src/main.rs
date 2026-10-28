@@ -565,6 +565,73 @@ fn spread_multiplier(kind: trendkit_core::SourceKind) -> f64 {
 /// instead would scramble any non-monotonic series and corrupt the
 /// projection. The spread band is widened by the per-kind calibrated
 /// [`spread_multiplier`].
+/// Calendar weekday of an ISO `YYYY-MM-DD` date: 0 = Monday .. 6 =
+/// Sunday. 1970-01-01 was a Thursday.
+fn weekday_from_iso(day: &str) -> Option<u32> {
+    let mut parts = day.split('-');
+    let y: i64 = parts.next()?.parse().ok()?;
+    let m: i64 = parts.next()?.parse().ok()?;
+    let d: i64 = parts.next()?.parse().ok()?;
+    let y_adj = if m <= 2 { y - 1 } else { y };
+    let era = y_adj.div_euclid(400);
+    let yoe = y_adj - era * 400;
+    let mp = (m + 9).rem_euclid(12);
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    Some(u32::try_from((days + 3).rem_euclid(7)).unwrap_or(0))
+}
+
+/// Weekday factors for the walk estimator, measured over the first
+/// week of live data (600 crate-weeks, 1,700 repo-weeks): each kind's
+/// daily delta normalized to its own mean. Downloads and stars run on
+/// a weekly clock — Monday is the trough, the working week and
+/// Saturday carry the surge. Provisional: one week of history, to be
+/// re-fit weekly. HF models stayed unseasonal (their profile is
+/// noise-dominated at this sample size) and HN is dominated by dead
+/// stories (delta exactly 0), so neither gets a factor.
+fn seasonal_factor(kind: trendkit_core::SourceKind, weekday: u32) -> f64 {
+    use trendkit_core::SourceKind::*;
+    const CRATE: [f64; 7] = [0.40, 1.21, 1.11, 1.21, 1.17, 1.24, 0.66];
+    const GITHUB: [f64; 7] = [0.63, 1.11, 1.40, 1.18, 0.98, 1.05, 0.68];
+    match kind {
+        Crate => CRATE[weekday as usize],
+        GithubRepo => GITHUB[weekday as usize],
+        _ => 1.0,
+    }
+}
+
+/// Scale the walk projection made on `made_on` for the day after it:
+/// the weekday factor of the target day over the factor of the day
+/// the delta was observed on. A walk anchored on Monday's trough must
+/// not forecast Tuesday's surge at Monday's rate (measured live: the
+/// 2026-10-27 batch underpredicted crate surges 4x, band coverage 47
+/// percent, against 97 percent for the Sunday-anchored batch).
+fn seasonal_scale(kind: trendkit_core::SourceKind, made_on: &str, for_day: &str) -> f64 {
+    match (weekday_from_iso(made_on), weekday_from_iso(for_day)) {
+        (Some(from), Some(to)) => {
+            let from_f = seasonal_factor(kind, from);
+            let to_f = seasonal_factor(kind, to);
+            if from_f > 0.0 {
+                to_f / from_f
+            } else {
+                1.0
+            }
+        }
+        _ => 1.0,
+    }
+}
+
+fn scale_projection(
+    mut p: signalkit_core::score::Projection,
+    scale: f64,
+) -> signalkit_core::score::Projection {
+    p.delta *= scale;
+    p.low *= scale;
+    p.high *= scale;
+    p
+}
+
 fn project_series(
     kind: trendkit_core::SourceKind,
     scores: &[i64],
@@ -675,7 +742,8 @@ fn forecast_section(store: &Store, min_points: u32) -> trendkit_core::Result<Vec
             continue;
         }
         let scores: Vec<i64> = pairs.iter().map(|(_, s)| *s).collect();
-        let projection = project_series(*kind, &scores);
+        let scale = seasonal_scale(*kind, &made_on, &for_day);
+        let projection = scale_projection(project_series(*kind, &scores), scale);
         let estimator = if *kind == trendkit_core::SourceKind::HfModel {
             "mean"
         } else {
@@ -1171,6 +1239,12 @@ fn cmd_forecast(settings: config::Settings, min_points: u32, db: PathBuf) -> Res
             .push((point.day, point.score));
     }
 
+    let made_on = per_subject
+        .values()
+        .flat_map(|points| points.iter().map(|(d, _)| d.clone()))
+        .max()
+        .unwrap_or_default();
+    let for_day = next_iso_day(&made_on).unwrap_or_default();
     let mut projections: Vec<(f64, f64, f64, String, String, i64)> = Vec::new();
     for ((kind, key), mut points) in per_subject {
         if points.len() < min_points as usize {
@@ -1178,7 +1252,8 @@ fn cmd_forecast(settings: config::Settings, min_points: u32, db: PathBuf) -> Res
         }
         points.sort();
         let scores: Vec<i64> = points.iter().map(|(_, s)| *s).collect();
-        let projection = project_series(kind, &scores);
+        let scale = seasonal_scale(kind, &made_on, &for_day);
+        let projection = scale_projection(project_series(kind, &scores), scale);
         let latest = *scores.last().unwrap_or(&0);
         projections.push((
             projection.delta,
@@ -1392,6 +1467,50 @@ mod forecast_tests {
             .expect("verification block");
         assert!(verify.contains("1 scored"), "{}", verify);
         assert!(verify.contains("band hit 1/1"), "{}", verify);
+    }
+
+    /// Weekday math against known calendar dates: 2026-10-25 was a
+    /// Sunday, 2026-10-26 the Monday whose surge the walk missed.
+    #[test]
+    fn weekday_from_iso_known_dates() {
+        assert_eq!(super::weekday_from_iso("2026-10-25"), Some(6));
+        assert_eq!(super::weekday_from_iso("2026-10-26"), Some(0));
+        assert_eq!(super::weekday_from_iso("2026-10-31"), Some(5));
+        assert_eq!(super::weekday_from_iso("1970-01-01"), Some(3));
+        assert_eq!(super::weekday_from_iso("bad"), None);
+    }
+
+    /// The seasonal scale is the target-day factor over the made-on
+    /// factor: Monday-made crate forecasts scale up ~3x for Tuesday,
+    /// non-crate kinds stay untouched, and a same-factor day is 1.0.
+    #[test]
+    fn seasonal_scale_monday_to_tuesday_crate() {
+        use trendkit_core::SourceKind;
+        let s = super::seasonal_scale(SourceKind::Crate, "2026-10-26", "2026-10-27");
+        let expected = 1.21 / 0.40;
+        assert!((s - expected).abs() < 1e-9, "{s} vs {expected}");
+        assert!(s > 2.5, "Monday->Tuesday must scale up hard: {s}");
+
+        // HfModel is unseasonal by design.
+        assert_eq!(
+            super::seasonal_scale(SourceKind::HfModel, "2026-10-26", "2026-10-27"),
+            1.0
+        );
+        // Same weekday round trip: no scaling.
+        assert!(
+            (super::seasonal_scale(SourceKind::Crate, "2026-10-20", "2026-10-27") - 1.0).abs()
+                < 1e-9
+        );
+    }
+
+    /// Scaling moves the point and the band together.
+    #[test]
+    fn scale_projection_scales_band_with_point() {
+        let raw = super::project_series(SourceKind::Crate, &[100, 150, 220]);
+        let scaled = super::scale_projection(raw.clone(), 3.0);
+        assert!((scaled.delta - raw.delta * 3.0).abs() < 1e-9);
+        assert!((scaled.low - raw.low * 3.0).abs() < 1e-9);
+        assert!((scaled.high - raw.high * 3.0).abs() < 1e-9);
     }
 
     /// The day-after helper rolls months and years correctly.

@@ -3,6 +3,28 @@
 All notable changes. Format: informal, newest first — this is a personal
 tool, not a library contract. breaking changes called out inline.
 
+## 0.6.2 — 2026-10-28
+
+- **First forecast verification: 1,271 scored, 71.6 percent band
+  coverage.** Per kind: github 216/226 (95.6 percent), hn 297/334
+  (88.9 percent, median error exactly 0 — 278 of 334 dead stories
+  projected their zero exactly), hf 97/111 (87.4 percent) — the
+  week-one calibration held out of sample for three of four kinds.
+- **Crates exposed the weekly clock and got the fix.** The
+  Sunday-anchored Oct-26 batch hit 97 percent; the Monday-anchored
+  Oct-27 batch crashed to 47 percent with a 4x underprediction on
+  every top crate (projected +4.3M, actual +16.0M for hashbrown).
+  Measured across 600 crate-weeks: Monday runs at 0.40x the mean
+  daily delta, Tuesday-Saturday at 1.11-1.24x. Forecasts are now
+  weekday-scaled (target-day factor over made-on factor), provisional
+  like the spread multipliers, re-fit weekly. GitHub got its milder
+  profile (Mon 0.63, Sun 0.68); HF stayed unseasonal (profile
+  noise-dominated at this sample size).
+- Also visible in the scored actuals: the Oct-27 crate surge (16M/day
+  on hashbrown, syn at 16M) is the largest single-day download event
+  in the store — the DeepSeek-V4.1 release cycle pulling the whole
+  Rust tree.
+
 ## 0.6.1 — 2026-10-25
 
 - Fix: a leftover `edgar` entry in the `--source all` list survived
