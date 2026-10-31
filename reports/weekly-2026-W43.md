@@ -1,4 +1,10 @@
 trendkit report; window 14d, db trendkit.db (1481 subjects, 8435 observations)
+last collection: huggingface wrote 100 observations at unix 1792740121
+profile: 207 repos, topics: rust(149), template(16), typescript(16), python(12), astro(11), starlight(10), shell(9), documentation(7)
+score = stars (GH) / points (HN) / downloads (CR); velocity = Δscore/day
+
+| K | Subject | Lang | Score | V/day | Score |
+|---|---|---|---:|---:|---:|
 | CR | [hashbrown](https://crates.io/crates/hashbrown); A Rust port of Google's SwissTable hash map | - | 2816235127 | 12466159.9 | 4.1 |
 | CR | [syn](https://crates.io/crates/syn); Parser for Rust source code | - | 2761393388 | 12126209.4 | 4.1 |
 | CR | [getrandom](https://crates.io/crates/getrandom); A small cross-platform library for retrieving random data from system source | - | 2346725874 | 11375429.7 | 4.1 |
@@ -9,6 +15,9 @@ trendkit report; window 14d, db trendkit.db (1481 subjects, 8435 observations)
 | CR | [thiserror](https://crates.io/crates/thiserror); derive(Error) | - | 1684707105 | 7406249.9 | 4.0 |
 | CR | [thiserror-impl](https://crates.io/crates/thiserror-impl); Implementation detail of the `thiserror` crate | - | 1684880258 | 7405794.8 | 4.0 |
 | CR | [windows-sys](https://crates.io/crates/windows-sys); Rust for Windows | - | 1780836525 | 6741515.7 | 3.9 |
+
+
+## Persistent (>= 2 distinct days)
 - [CR] hashbrown; 6 day(s), 2816235127 now, 12466160/day
 - [CR] syn; 6 day(s), 2761393388 now, 12126209/day
 - [CR] getrandom; 6 day(s), 2346725874 now, 11375430/day
@@ -19,6 +28,8 @@ trendkit report; window 14d, db trendkit.db (1481 subjects, 8435 observations)
 - [CR] thiserror; 6 day(s), 1684707105 now, 7406250/day
 - [CR] thiserror-impl; 6 day(s), 1684880258 now, 7405795/day
 - [CR] windows-sys; 6 day(s), 1780836525 now, 6741516/day
+
+## Integrity: fork-ratio flags
 - x4gpanell/JinX-X4G; 371★/837 forks (225.6%) [extreme]; trust 10 [SUSPECT]
 - storytold/craft-libs; 325★/620 forks (190.8%) [extreme]; trust 0 [SUSPECT]
 - WoYun520/dsh-purge; 413★/698 forks (169.0%) [extreme]; trust 33 [SUSPECT]
@@ -106,21 +117,28 @@ trendkit report; window 14d, db trendkit.db (1481 subjects, 8435 observations)
 - shuyu-labs/transwork; 236★/48 forks (20.3%) [elevated]; trust 92 [trusted]
 - php/php-src; 41351★/8330 forks (20.1%) [elevated]; trust 92 [trusted]
 - Caho1/open-claude-ui; 1345★/270 forks (20.1%) [elevated]; trust 92 [trusted]
+## Integrity: same-name clone farms
 - `ARTEX`; 3 orgs, 2895★/2438 forks (84.2%)
 - `.github`; 9 orgs, 3523★/1801 forks (51.1%)
+## Integrity: org bursts
 - @Gathin23; 2 repos, combined 8520/day: Gathin23/cleanyourtv, Gathin23/tv-vibehack
 - @anthropics; 4 repos, combined 1856/day: anthropics/claude-plugins-official, anthropics/claude-code, anthropics/knowledge-work-plugins, anthropics/oss-scanner
 - @storytold; 7 repos, combined 1183/day: storytold/wordcraft, storytold/cadcraft, storytold/gridcraft, storytold/figcraft
 - @Jakeschincariol; 3 repos, combined 526/day: Jakeschincariol/day-trader-skill, Jakeschincariol/founder-skill, Jakeschincariol/trader-skill
+## Integrity: velocity outliers
 - [HF] Comfy-Org/MOSS-Image; 234643.3/day (robust z 45.2)
 - [HF] Comfy-Org/Qwen-Image-2.1; 212073.7/day (robust z 40.8)
 - [HF] ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF; 142911.5/day (robust z 27.2)
 - [HF] Comfy-Org/MiniMax-H3; 123330.4/day (robust z 23.4)
 - [HF] baidu/Unlimited-OCR; 119588.9/day (robust z 22.7)
+
+## Shapes (multi-day subjects)
 - ACCELERATING [HfModel] Comfy-Org/Qwen-Image-2.1; 11751836 now, latest day +364919
 - ACCELERATING [HfModel] prism-ml/Ternary-Bonsai-2-27B-gguf; 2484375 now, latest day +-224058
 - COOLING [HfModel] Comfy-Org/MiniMax-H3; 25825332 now, latest day +-117081
 - COOLING [HfModel] Qwen/Qwen3.8-27B; 7758670 now, latest day +29238
+
+## Trending topics (top 5)
 - conversational; 57 repo(s), +2986483 stars across tracked subjects
 - image-text-to-text; 40 repo(s), +2756987 stars across tracked subjects
 - endpoints_compatible; 58 repo(s), +2569870 stars across tracked subjects
