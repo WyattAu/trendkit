@@ -1,146 +1,128 @@
-trendkit report — window 14d, db trendkit.db (1481 subjects, 8435 observations)
-last collection: huggingface wrote 100 observations at unix 1792740121
-profile: 207 repos, topics: rust(149), template(16), typescript(16), python(12), astro(11), starlight(10), shell(9), documentation(7)
-score = stars (GH) / points (HN) / downloads (CR); velocity = Δscore/day
-
-| K | Subject | Lang | Score | V/day | Score |
-|---|---|---|---:|---:|---:|
-| CR | [hashbrown](https://crates.io/crates/hashbrown) — A Rust port of Google's SwissTable hash map | - | 2816235127 | 12466159.9 | 4.1 |
-| CR | [syn](https://crates.io/crates/syn) — Parser for Rust source code | - | 2761393388 | 12126209.4 | 4.1 |
-| CR | [getrandom](https://crates.io/crates/getrandom) — A small cross-platform library for retrieving random data from system source | - | 2346725874 | 11375429.7 | 4.1 |
-| CR | [rand_core](https://crates.io/crates/rand_core) — Core random number generator traits and tools for implementation.  | - | 1994970479 | 8972115.4 | 4.0 |
-| CR | [rand](https://crates.io/crates/rand) — Random number generators and other randomness functionality.  | - | 1977602050 | 8936609.3 | 4.0 |
-| CR | [bitflags](https://crates.io/crates/bitflags) — A macro to generate structures which behave like bitflags.  | - | 2088327829 | 8019131.0 | 4.0 |
-| CR | [base64](https://crates.io/crates/base64) — encodes and decodes base64 as bytes or utf8 | - | 1792473150 | 7896775.6 | 4.0 |
-| CR | [thiserror](https://crates.io/crates/thiserror) — derive(Error) | - | 1684707105 | 7406249.9 | 4.0 |
-| CR | [thiserror-impl](https://crates.io/crates/thiserror-impl) — Implementation detail of the `thiserror` crate | - | 1684880258 | 7405794.8 | 4.0 |
-| CR | [windows-sys](https://crates.io/crates/windows-sys) — Rust for Windows | - | 1780836525 | 6741515.7 | 3.9 |
-
-
-## Persistent (>= 2 distinct days)
-- [CR] hashbrown — 6 day(s), 2816235127 now, 12466160/day
-- [CR] syn — 6 day(s), 2761393388 now, 12126209/day
-- [CR] getrandom — 6 day(s), 2346725874 now, 11375430/day
-- [CR] rand_core — 6 day(s), 1994970479 now, 8972115/day
-- [CR] rand — 6 day(s), 1977602050 now, 8936609/day
-- [CR] bitflags — 6 day(s), 2088327829 now, 8019131/day
-- [CR] base64 — 6 day(s), 1792473150 now, 7896776/day
-- [CR] thiserror — 6 day(s), 1684707105 now, 7406250/day
-- [CR] thiserror-impl — 6 day(s), 1684880258 now, 7405795/day
-- [CR] windows-sys — 6 day(s), 1780836525 now, 6741516/day
-
-## Integrity: fork-ratio flags
-- x4gpanell/JinX-X4G — 371★/837 forks (225.6%) [extreme] — trust 10 [SUSPECT]
-- storytold/craft-libs — 325★/620 forks (190.8%) [extreme] — trust 0 [SUSPECT]
-- WoYun520/dsh-purge — 413★/698 forks (169.0%) [extreme] — trust 33 [SUSPECT]
-- storytold/craft-fonts — 360★/590 forks (163.9%) [extreme] — trust 10 [SUSPECT]
-- Hinln/ARTEX — 907★/1392 forks (153.5%) [extreme] — trust 39 [SUSPECT]
-- mmparko/dsh-purge — 1813★/2520 forks (139.0%) [extreme] — trust 35 [SUSPECT]
-- heqiangdiao-wq/AI-Cross-Border-Ecommerce-Agent-Toolkit — 552★/613 forks (111.1%) [extreme] — trust 56 [watch]
-- CrocSwap/integer-mult-bounds — 289★/299 forks (103.5%) [extreme] — trust 59 [watch]
-- jddevtime/open-lakehouse-compute-fabric — 276★/275 forks (99.6%) [extreme] — trust 61 [watch]
-- fort-tool/.github — 270★/269 forks (99.6%) [extreme] — trust 60 [watch]
-- cod-tool/.github — 270★/268 forks (99.3%) [extreme] — trust 60 [watch]
-- cs2-tools-new/.github — 268★/264 forks (98.5%) [extreme] — trust 61 [watch]
-- val-tools/.github — 244★/238 forks (97.5%) [extreme] — trust 61 [watch]
-- JeffKeeping/dsh-purge-plus — 357★/332 forks (93.0%) [extreme] — trust 63 [watch]
-- cs-tool-s/.github — 244★/216 forks (88.5%) [extreme] — trust 65 [watch]
-- crhywun/gpt-subscribe-studio-1 — 235★/198 forks (84.3%) [extreme] — trust 67 [watch]
-- apex-pro12/.github — 262★/214 forks (81.7%) [extreme] — trust 68 [watch]
-- rbl-tools/.github — 242★/197 forks (81.4%) [extreme] — trust 68 [watch]
-- david-silvalab1993i0/Roblox-Aimbot-Smooth-Tracking-Auto-Aim-Script-2026 — 301★/217 forks (72.1%) [extreme] — trust 71 [watch]
-- RuoJi6/ARTEX — 490★/324 forks (66.1%) [extreme] — trust 74 [watch]
-- JPTER78/pokesurvivor — 335★/215 forks (64.2%) [extreme] — trust 75 [watch]
-- storytold/soundcraft — 3379★/2132 forks (63.1%) [extreme] — trust 50 [watch]
-- CoolkHz/gptibo — 855★/507 forks (59.3%) [extreme] — trust 77 [watch]
-- anthropics/oss-scanner — 1369★/809 forks (59.1%) [extreme] — trust 52 [watch]
-- i12bp8/decomp.wtf — 533★/312 forks (58.5%) [extreme] — trust 77 [watch]
-- storytold/deckcraft — 3920★/2210 forks (56.4%) [extreme] — trust 53 [watch]
-- VallierDev/uu-remote-linux — 372★/199 forks (53.5%) [extreme] — trust 79 [watch]
-- dipa-studio/ios-sweet — 955★/476 forks (49.8%) [extreme] — trust 80 [watch]
-- arc-tool/.github — 271★/135 forks (49.8%) [extreme] — trust 80 [watch]
-- shadany7824/playgta5 — 1696★/828 forks (48.8%) [extreme] — trust 81 [watch]
-- trhhubsd/ARTEX — 1498★/722 forks (48.2%) [extreme] — trust 81 [watch]
-- bitwarden-app312/.gitp3d — 263★/126 forks (47.9%) [extreme] — trust 81 [watch]
-- storytold/gridcraft — 5941★/2756 forks (46.4%) [extreme] — trust 57 [watch]
-- storytold/cadcraft — 6046★/2664 forks (44.1%) [extreme] — trust 58 [watch]
-- nunomaduro/dev-null.sh — 429★/187 forks (43.6%) [extreme] — trust 83 [watch]
-- ZiChuanLan/pi-purge — 290★/126 forks (43.4%) [extreme] — trust 83 [watch]
-- OutThisLife/azeroth-survivors-re — 229★/99 forks (43.2%) [extreme] — trust 83 [watch]
-- dev-null-sh/dev-null.sh — 518★/216 forks (41.7%) [extreme] — trust 84 [watch]
-- wbr664393425-lgtm/scaffold-master — 377★/153 forks (40.6%) [extreme] — trust 84 [watch]
-- LiCinCan/blender-ai-mcp-addon — 976★/390 forks (40.0%) [elevated] — trust 84 [trusted]
-- storytold/figcraft — 3081★/1223 forks (39.7%) [elevated] — trust 60 [watch]
-- ToiCF/CF-Workers-TGProxy — 963★/347 forks (36.0%) [elevated] — trust 86 [trusted]
-- ikow/php2shell-poc — 1587★/558 forks (35.2%) [elevated] — trust 76 [watch]
-- 9bie/php2shell-bypass-aslr-exp — 1005★/352 forks (35.0%) [elevated] — trust 76 [watch]
-- oosexgang/hackios-xnu-userland — 271★/93 forks (34.3%) [elevated] — trust 86 [trusted]
-- zgsfsec/Full-Chain-Sentinel-System — 422★/143 forks (33.9%) [elevated] — trust 87 [trusted]
-- NabilRFG12/Reverse-Engineer-anything — 863★/290 forks (33.6%) [elevated] — trust 87 [trusted]
-- bbylw/rea-cn — 546★/182 forks (33.3%) [elevated] — trust 87 [trusted]
-- jiayx/d2r-mobile-build — 390★/128 forks (32.8%) [elevated] — trust 87 [trusted]
-- NCSC-NL/php2shell — 238★/77 forks (32.4%) [elevated] — trust 87 [trusted]
-- storytold/craft-launcher — 3784★/1220 forks (32.2%) [elevated] — trust 63 [watch]
-- c22dev/muguet — 719★/229 forks (31.8%) [elevated] — trust 88 [trusted]
-- MadsLorentzen/ai-job-search — 61435★/19060 forks (31.0%) [elevated] — trust 78 [watch]
-- zhuyansen/new-term-radar — 1722★/534 forks (31.0%) [elevated] — trust 88 [trusted]
-- garycaogan/ai-live-avatar — 336★/98 forks (29.2%) [elevated] — trust 89 [trusted]
-- jhaizhou-ops/d2r-mobile — 4433★/1205 forks (27.2%) [elevated] — trust 90 [trusted]
-- storytold/wordcraft — 14845★/3978 forks (26.8%) [elevated] — trust 55 [watch]
-- sakidekin/CVE-2026-41940-PoC — 533★/142 forks (26.6%) [elevated] — trust 90 [trusted]
-- Sam1983Aing/casa-serra — 267★/70 forks (26.2%) [elevated] — trust 90 [trusted]
-- iam567/rich4-renew-app — 264★/68 forks (25.8%) [elevated] — trust 90 [trusted]
-- marclou/mailcheap — 1307★/335 forks (25.6%) [elevated] — trust 90 [trusted]
-- anujasid/blender-ai-mcp-addon — 638★/161 forks (25.2%) [elevated] — trust 90 [trusted]
-- michaelshimeles/terminal-rs — 283★/71 forks (25.1%) [elevated] — trust 90 [trusted]
-- sirioberati/Genjustsu-Open-Source-Workflow — 1034★/259 forks (25.0%) [elevated] — trust 91 [trusted]
-- vllm-project/vllm — 95013★/23775 forks (25.0%) [elevated] — trust 80 [watch]
-- OrgoAI/bops — 325★/81 forks (24.9%) [elevated] — trust 91 [trusted]
-- jtydhr88/ComfyArt — 242★/60 forks (24.8%) [elevated] — trust 90 [trusted]
-- galadran/we-have-a-problem.com — 288★/70 forks (24.3%) [elevated] — trust 90 [trusted]
-- eness/php2shell-CVE-2026-109618-CVE-2026-109619-PoC — 912★/221 forks (24.2%) [elevated] — trust 90 [trusted]
-- Hybirdss/Hycli — 415★/100 forks (24.1%) [elevated] — trust 91 [trusted]
-- egotoadcitadel/palette-from-image-ai — 233★/56 forks (24.0%) [elevated] — trust 91 [trusted]
-- kevinerikjs/gta5-ios-port — 511★/119 forks (23.3%) [elevated] — trust 91 [trusted]
-- gr8rstudio/gr8r-studio — 857★/198 forks (23.1%) [elevated] — trust 91 [trusted]
-- nateherkai/roast-room — 1015★/233 forks (23.0%) [elevated] — trust 91 [trusted]
-- xiaoyang111222/cn-math-taxonomy — 2402★/550 forks (22.9%) [elevated] — trust 81 [trusted]
-- morluto/awesome-reverse-engineering — 1081★/246 forks (22.8%) [elevated] — trust 91 [trusted]
-- PS5Dev/Byepervisor-Reborn — 506★/111 forks (21.9%) [elevated] — trust 92 [trusted]
-- MyLuxy/overdrive — 1213★/266 forks (21.9%) [elevated] — trust 92 [trusted]
-- atbfun/ATBGamePort — 270★/58 forks (21.5%) [elevated] — trust 92 [trusted]
-- d2r-mobile/d2r-mobile — 277★/58 forks (20.9%) [elevated] — trust 92 [trusted]
-- SebasKitten/Grand-V — 297★/62 forks (20.9%) [elevated] — trust 92 [trusted]
-- GustavoReset/ResetExplode — 369★/77 forks (20.9%) [elevated] — trust 92 [trusted]
-- HeyChengC/wallstreet-explainer — 391★/81 forks (20.7%) [elevated] — trust 92 [trusted]
-- sitor-ai/frametell — 383★/78 forks (20.4%) [elevated] — trust 92 [trusted]
-- shuyu-labs/transwork — 236★/48 forks (20.3%) [elevated] — trust 92 [trusted]
-- php/php-src — 41351★/8330 forks (20.1%) [elevated] — trust 92 [trusted]
-- Caho1/open-claude-ui — 1345★/270 forks (20.1%) [elevated] — trust 92 [trusted]
-## Integrity: same-name clone farms
-- `ARTEX` — 3 orgs, 2895★/2438 forks (84.2%)
-- `.github` — 9 orgs, 3523★/1801 forks (51.1%)
-## Integrity: org bursts
-- @Gathin23 — 2 repos, combined 8520/day: Gathin23/cleanyourtv, Gathin23/tv-vibehack
-- @anthropics — 4 repos, combined 1856/day: anthropics/claude-plugins-official, anthropics/claude-code, anthropics/knowledge-work-plugins, anthropics/oss-scanner
-- @storytold — 7 repos, combined 1183/day: storytold/wordcraft, storytold/cadcraft, storytold/gridcraft, storytold/figcraft
-- @Jakeschincariol — 3 repos, combined 526/day: Jakeschincariol/day-trader-skill, Jakeschincariol/founder-skill, Jakeschincariol/trader-skill
-## Integrity: velocity outliers
-- [HF] Comfy-Org/MOSS-Image — 234643.3/day (robust z 45.2)
-- [HF] Comfy-Org/Qwen-Image-2.1 — 212073.7/day (robust z 40.8)
-- [HF] ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF — 142911.5/day (robust z 27.2)
-- [HF] Comfy-Org/MiniMax-H3 — 123330.4/day (robust z 23.4)
-- [HF] baidu/Unlimited-OCR — 119588.9/day (robust z 22.7)
-
-## Shapes (multi-day subjects)
-- ACCELERATING [HfModel] Comfy-Org/Qwen-Image-2.1 — 11751836 now, latest day +364919
-- ACCELERATING [HfModel] prism-ml/Ternary-Bonsai-2-27B-gguf — 2484375 now, latest day +-224058
-- COOLING [HfModel] Comfy-Org/MiniMax-H3 — 25825332 now, latest day +-117081
-- COOLING [HfModel] Qwen/Qwen3.8-27B — 7758670 now, latest day +29238
-
-## Trending topics (top 5)
-- conversational — 57 repo(s), +2986483 stars across tracked subjects
-- image-text-to-text — 40 repo(s), +2756987 stars across tracked subjects
-- endpoints_compatible — 58 repo(s), +2569870 stars across tracked subjects
-- comfyui — 12 repo(s), +2461513 stars across tracked subjects
-- diffusion-single-file — 8 repo(s), +2412513 stars across tracked subjects
+trendkit report; window 14d, db trendkit.db (1481 subjects, 8435 observations)
+| CR | [hashbrown](https://crates.io/crates/hashbrown); A Rust port of Google's SwissTable hash map | - | 2816235127 | 12466159.9 | 4.1 |
+| CR | [syn](https://crates.io/crates/syn); Parser for Rust source code | - | 2761393388 | 12126209.4 | 4.1 |
+| CR | [getrandom](https://crates.io/crates/getrandom); A small cross-platform library for retrieving random data from system source | - | 2346725874 | 11375429.7 | 4.1 |
+| CR | [rand_core](https://crates.io/crates/rand_core); Core random number generator traits and tools for implementation.  | - | 1994970479 | 8972115.4 | 4.0 |
+| CR | [rand](https://crates.io/crates/rand); Random number generators and other randomness functionality.  | - | 1977602050 | 8936609.3 | 4.0 |
+| CR | [bitflags](https://crates.io/crates/bitflags); A macro to generate structures which behave like bitflags.  | - | 2088327829 | 8019131.0 | 4.0 |
+| CR | [base64](https://crates.io/crates/base64); encodes and decodes base64 as bytes or utf8 | - | 1792473150 | 7896775.6 | 4.0 |
+| CR | [thiserror](https://crates.io/crates/thiserror); derive(Error) | - | 1684707105 | 7406249.9 | 4.0 |
+| CR | [thiserror-impl](https://crates.io/crates/thiserror-impl); Implementation detail of the `thiserror` crate | - | 1684880258 | 7405794.8 | 4.0 |
+| CR | [windows-sys](https://crates.io/crates/windows-sys); Rust for Windows | - | 1780836525 | 6741515.7 | 3.9 |
+- [CR] hashbrown; 6 day(s), 2816235127 now, 12466160/day
+- [CR] syn; 6 day(s), 2761393388 now, 12126209/day
+- [CR] getrandom; 6 day(s), 2346725874 now, 11375430/day
+- [CR] rand_core; 6 day(s), 1994970479 now, 8972115/day
+- [CR] rand; 6 day(s), 1977602050 now, 8936609/day
+- [CR] bitflags; 6 day(s), 2088327829 now, 8019131/day
+- [CR] base64; 6 day(s), 1792473150 now, 7896776/day
+- [CR] thiserror; 6 day(s), 1684707105 now, 7406250/day
+- [CR] thiserror-impl; 6 day(s), 1684880258 now, 7405795/day
+- [CR] windows-sys; 6 day(s), 1780836525 now, 6741516/day
+- x4gpanell/JinX-X4G; 371★/837 forks (225.6%) [extreme]; trust 10 [SUSPECT]
+- storytold/craft-libs; 325★/620 forks (190.8%) [extreme]; trust 0 [SUSPECT]
+- WoYun520/dsh-purge; 413★/698 forks (169.0%) [extreme]; trust 33 [SUSPECT]
+- storytold/craft-fonts; 360★/590 forks (163.9%) [extreme]; trust 10 [SUSPECT]
+- Hinln/ARTEX; 907★/1392 forks (153.5%) [extreme]; trust 39 [SUSPECT]
+- mmparko/dsh-purge; 1813★/2520 forks (139.0%) [extreme]; trust 35 [SUSPECT]
+- heqiangdiao-wq/AI-Cross-Border-Ecommerce-Agent-Toolkit; 552★/613 forks (111.1%) [extreme]; trust 56 [watch]
+- CrocSwap/integer-mult-bounds; 289★/299 forks (103.5%) [extreme]; trust 59 [watch]
+- jddevtime/open-lakehouse-compute-fabric; 276★/275 forks (99.6%) [extreme]; trust 61 [watch]
+- fort-tool/.github; 270★/269 forks (99.6%) [extreme]; trust 60 [watch]
+- cod-tool/.github; 270★/268 forks (99.3%) [extreme]; trust 60 [watch]
+- cs2-tools-new/.github; 268★/264 forks (98.5%) [extreme]; trust 61 [watch]
+- val-tools/.github; 244★/238 forks (97.5%) [extreme]; trust 61 [watch]
+- JeffKeeping/dsh-purge-plus; 357★/332 forks (93.0%) [extreme]; trust 63 [watch]
+- cs-tool-s/.github; 244★/216 forks (88.5%) [extreme]; trust 65 [watch]
+- crhywun/gpt-subscribe-studio-1; 235★/198 forks (84.3%) [extreme]; trust 67 [watch]
+- apex-pro12/.github; 262★/214 forks (81.7%) [extreme]; trust 68 [watch]
+- rbl-tools/.github; 242★/197 forks (81.4%) [extreme]; trust 68 [watch]
+- david-silvalab1993i0/Roblox-Aimbot-Smooth-Tracking-Auto-Aim-Script-2026; 301★/217 forks (72.1%) [extreme]; trust 71 [watch]
+- RuoJi6/ARTEX; 490★/324 forks (66.1%) [extreme]; trust 74 [watch]
+- JPTER78/pokesurvivor; 335★/215 forks (64.2%) [extreme]; trust 75 [watch]
+- storytold/soundcraft; 3379★/2132 forks (63.1%) [extreme]; trust 50 [watch]
+- CoolkHz/gptibo; 855★/507 forks (59.3%) [extreme]; trust 77 [watch]
+- anthropics/oss-scanner; 1369★/809 forks (59.1%) [extreme]; trust 52 [watch]
+- i12bp8/decomp.wtf; 533★/312 forks (58.5%) [extreme]; trust 77 [watch]
+- storytold/deckcraft; 3920★/2210 forks (56.4%) [extreme]; trust 53 [watch]
+- VallierDev/uu-remote-linux; 372★/199 forks (53.5%) [extreme]; trust 79 [watch]
+- dipa-studio/ios-sweet; 955★/476 forks (49.8%) [extreme]; trust 80 [watch]
+- arc-tool/.github; 271★/135 forks (49.8%) [extreme]; trust 80 [watch]
+- shadany7824/playgta5; 1696★/828 forks (48.8%) [extreme]; trust 81 [watch]
+- trhhubsd/ARTEX; 1498★/722 forks (48.2%) [extreme]; trust 81 [watch]
+- bitwarden-app312/.gitp3d; 263★/126 forks (47.9%) [extreme]; trust 81 [watch]
+- storytold/gridcraft; 5941★/2756 forks (46.4%) [extreme]; trust 57 [watch]
+- storytold/cadcraft; 6046★/2664 forks (44.1%) [extreme]; trust 58 [watch]
+- nunomaduro/dev-null.sh; 429★/187 forks (43.6%) [extreme]; trust 83 [watch]
+- ZiChuanLan/pi-purge; 290★/126 forks (43.4%) [extreme]; trust 83 [watch]
+- OutThisLife/azeroth-survivors-re; 229★/99 forks (43.2%) [extreme]; trust 83 [watch]
+- dev-null-sh/dev-null.sh; 518★/216 forks (41.7%) [extreme]; trust 84 [watch]
+- wbr664393425-lgtm/scaffold-master; 377★/153 forks (40.6%) [extreme]; trust 84 [watch]
+- LiCinCan/blender-ai-mcp-addon; 976★/390 forks (40.0%) [elevated]; trust 84 [trusted]
+- storytold/figcraft; 3081★/1223 forks (39.7%) [elevated]; trust 60 [watch]
+- ToiCF/CF-Workers-TGProxy; 963★/347 forks (36.0%) [elevated]; trust 86 [trusted]
+- ikow/php2shell-poc; 1587★/558 forks (35.2%) [elevated]; trust 76 [watch]
+- 9bie/php2shell-bypass-aslr-exp; 1005★/352 forks (35.0%) [elevated]; trust 76 [watch]
+- oosexgang/hackios-xnu-userland; 271★/93 forks (34.3%) [elevated]; trust 86 [trusted]
+- zgsfsec/Full-Chain-Sentinel-System; 422★/143 forks (33.9%) [elevated]; trust 87 [trusted]
+- NabilRFG12/Reverse-Engineer-anything; 863★/290 forks (33.6%) [elevated]; trust 87 [trusted]
+- bbylw/rea-cn; 546★/182 forks (33.3%) [elevated]; trust 87 [trusted]
+- jiayx/d2r-mobile-build; 390★/128 forks (32.8%) [elevated]; trust 87 [trusted]
+- NCSC-NL/php2shell; 238★/77 forks (32.4%) [elevated]; trust 87 [trusted]
+- storytold/craft-launcher; 3784★/1220 forks (32.2%) [elevated]; trust 63 [watch]
+- c22dev/muguet; 719★/229 forks (31.8%) [elevated]; trust 88 [trusted]
+- MadsLorentzen/ai-job-search; 61435★/19060 forks (31.0%) [elevated]; trust 78 [watch]
+- zhuyansen/new-term-radar; 1722★/534 forks (31.0%) [elevated]; trust 88 [trusted]
+- garycaogan/ai-live-avatar; 336★/98 forks (29.2%) [elevated]; trust 89 [trusted]
+- jhaizhou-ops/d2r-mobile; 4433★/1205 forks (27.2%) [elevated]; trust 90 [trusted]
+- storytold/wordcraft; 14845★/3978 forks (26.8%) [elevated]; trust 55 [watch]
+- sakidekin/CVE-2026-41940-PoC; 533★/142 forks (26.6%) [elevated]; trust 90 [trusted]
+- Sam1983Aing/casa-serra; 267★/70 forks (26.2%) [elevated]; trust 90 [trusted]
+- iam567/rich4-renew-app; 264★/68 forks (25.8%) [elevated]; trust 90 [trusted]
+- marclou/mailcheap; 1307★/335 forks (25.6%) [elevated]; trust 90 [trusted]
+- anujasid/blender-ai-mcp-addon; 638★/161 forks (25.2%) [elevated]; trust 90 [trusted]
+- michaelshimeles/terminal-rs; 283★/71 forks (25.1%) [elevated]; trust 90 [trusted]
+- sirioberati/Genjustsu-Open-Source-Workflow; 1034★/259 forks (25.0%) [elevated]; trust 91 [trusted]
+- vllm-project/vllm; 95013★/23775 forks (25.0%) [elevated]; trust 80 [watch]
+- OrgoAI/bops; 325★/81 forks (24.9%) [elevated]; trust 91 [trusted]
+- jtydhr88/ComfyArt; 242★/60 forks (24.8%) [elevated]; trust 90 [trusted]
+- galadran/we-have-a-problem.com; 288★/70 forks (24.3%) [elevated]; trust 90 [trusted]
+- eness/php2shell-CVE-2026-109618-CVE-2026-109619-PoC; 912★/221 forks (24.2%) [elevated]; trust 90 [trusted]
+- Hybirdss/Hycli; 415★/100 forks (24.1%) [elevated]; trust 91 [trusted]
+- egotoadcitadel/palette-from-image-ai; 233★/56 forks (24.0%) [elevated]; trust 91 [trusted]
+- kevinerikjs/gta5-ios-port; 511★/119 forks (23.3%) [elevated]; trust 91 [trusted]
+- gr8rstudio/gr8r-studio; 857★/198 forks (23.1%) [elevated]; trust 91 [trusted]
+- nateherkai/roast-room; 1015★/233 forks (23.0%) [elevated]; trust 91 [trusted]
+- xiaoyang111222/cn-math-taxonomy; 2402★/550 forks (22.9%) [elevated]; trust 81 [trusted]
+- morluto/awesome-reverse-engineering; 1081★/246 forks (22.8%) [elevated]; trust 91 [trusted]
+- PS5Dev/Byepervisor-Reborn; 506★/111 forks (21.9%) [elevated]; trust 92 [trusted]
+- MyLuxy/overdrive; 1213★/266 forks (21.9%) [elevated]; trust 92 [trusted]
+- atbfun/ATBGamePort; 270★/58 forks (21.5%) [elevated]; trust 92 [trusted]
+- d2r-mobile/d2r-mobile; 277★/58 forks (20.9%) [elevated]; trust 92 [trusted]
+- SebasKitten/Grand-V; 297★/62 forks (20.9%) [elevated]; trust 92 [trusted]
+- GustavoReset/ResetExplode; 369★/77 forks (20.9%) [elevated]; trust 92 [trusted]
+- HeyChengC/wallstreet-explainer; 391★/81 forks (20.7%) [elevated]; trust 92 [trusted]
+- sitor-ai/frametell; 383★/78 forks (20.4%) [elevated]; trust 92 [trusted]
+- shuyu-labs/transwork; 236★/48 forks (20.3%) [elevated]; trust 92 [trusted]
+- php/php-src; 41351★/8330 forks (20.1%) [elevated]; trust 92 [trusted]
+- Caho1/open-claude-ui; 1345★/270 forks (20.1%) [elevated]; trust 92 [trusted]
+- `ARTEX`; 3 orgs, 2895★/2438 forks (84.2%)
+- `.github`; 9 orgs, 3523★/1801 forks (51.1%)
+- @Gathin23; 2 repos, combined 8520/day: Gathin23/cleanyourtv, Gathin23/tv-vibehack
+- @anthropics; 4 repos, combined 1856/day: anthropics/claude-plugins-official, anthropics/claude-code, anthropics/knowledge-work-plugins, anthropics/oss-scanner
+- @storytold; 7 repos, combined 1183/day: storytold/wordcraft, storytold/cadcraft, storytold/gridcraft, storytold/figcraft
+- @Jakeschincariol; 3 repos, combined 526/day: Jakeschincariol/day-trader-skill, Jakeschincariol/founder-skill, Jakeschincariol/trader-skill
+- [HF] Comfy-Org/MOSS-Image; 234643.3/day (robust z 45.2)
+- [HF] Comfy-Org/Qwen-Image-2.1; 212073.7/day (robust z 40.8)
+- [HF] ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF; 142911.5/day (robust z 27.2)
+- [HF] Comfy-Org/MiniMax-H3; 123330.4/day (robust z 23.4)
+- [HF] baidu/Unlimited-OCR; 119588.9/day (robust z 22.7)
+- ACCELERATING [HfModel] Comfy-Org/Qwen-Image-2.1; 11751836 now, latest day +364919
+- ACCELERATING [HfModel] prism-ml/Ternary-Bonsai-2-27B-gguf; 2484375 now, latest day +-224058
+- COOLING [HfModel] Comfy-Org/MiniMax-H3; 25825332 now, latest day +-117081
+- COOLING [HfModel] Qwen/Qwen3.8-27B; 7758670 now, latest day +29238
+- conversational; 57 repo(s), +2986483 stars across tracked subjects
+- image-text-to-text; 40 repo(s), +2756987 stars across tracked subjects
+- endpoints_compatible; 58 repo(s), +2569870 stars across tracked subjects
+- comfyui; 12 repo(s), +2461513 stars across tracked subjects
+- diffusion-single-file; 8 repo(s), +2412513 stars across tracked subjects
